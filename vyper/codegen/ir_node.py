@@ -10,6 +10,7 @@ from vyper.evm.opcodes import get_ir_opcodes
 from vyper.exceptions import CodegenPanic, CompilerPanic
 from vyper.semantics.types import VyperType
 from vyper.utils import VALID_IR_MACROS, ceil32
+from vyper.venom.basicblock import IRBasicBlock, IRInstruction
 
 # Set default string representation for ints in IR output.
 AS_HEX_DEFAULT = False
@@ -172,6 +173,7 @@ class IRnode:
     args: List["IRnode"]
     value: Union[str, int]
     is_self_call: bool
+    passthrough_venom: Optional[list[IRInstruction, IRBasicBlock]]
     passthrough_metadata: dict[str, Any]
     func_ir: Any
     common_ir: Any
@@ -190,6 +192,7 @@ class IRnode:
         encoding: Encoding = Encoding.VYPER,
         is_self_call: bool = False,
         passthrough_metadata: dict[str, Any] = None,
+        passthrough_venom=None,
     ):
         if args is None:
             args = []
@@ -209,6 +212,7 @@ class IRnode:
         self.as_hex = AS_HEX_DEFAULT
         self.is_self_call = is_self_call
         self.passthrough_metadata = passthrough_metadata or {}
+        self.passthrough_venom = passthrough_venom
         self.func_ir = None
         self.common_ir = None
 

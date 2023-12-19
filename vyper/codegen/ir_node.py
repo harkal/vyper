@@ -2,7 +2,7 @@ import contextlib
 import re
 from enum import Enum, auto
 from functools import cached_property
-from typing import Any, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Tuple, Union
 
 from vyper.compiler.settings import VYPER_COLOR_OUTPUT
 from vyper.evm.address_space import AddrSpace
@@ -10,7 +10,9 @@ from vyper.evm.opcodes import get_ir_opcodes
 from vyper.exceptions import CodegenPanic, CompilerPanic
 from vyper.semantics.types import VyperType
 from vyper.utils import VALID_IR_MACROS, ceil32
-from vyper.venom.basicblock import IRBasicBlock, IRInstruction
+
+if TYPE_CHECKING:
+    from vyper.venom.basicblock import IRBasicBlock, IRInstruction
 
 # Set default string representation for ints in IR output.
 AS_HEX_DEFAULT = False
@@ -173,7 +175,7 @@ class IRnode:
     args: List["IRnode"]
     value: Union[str, int]
     is_self_call: bool
-    passthrough_venom: Optional[list[IRInstruction, IRBasicBlock]]
+    passthrough_venom: Optional[list["IRInstruction | IRBasicBlock"]]
     passthrough_metadata: dict[str, Any]
     func_ir: Any
     common_ir: Any
@@ -192,7 +194,7 @@ class IRnode:
         encoding: Encoding = Encoding.VYPER,
         is_self_call: bool = False,
         passthrough_metadata: dict[str, Any] = None,
-        passthrough_venom=None,
+        passthrough_venom: Optional[list["IRInstruction | IRBasicBlock"]] = None,
     ):
         if args is None:
             args = []

@@ -277,6 +277,14 @@ def _convert_ir_basicblock(ctx, ir, symbols, variables, allocated_variables):
 
     elif ir.value in ["pass", "stop", "return"]:
         pass
+    elif ir.value == "injectvenom":
+        for arg in ir.passthrough_venom:
+            if isinstance(arg, IRInstruction):
+                ctx.get_basic_block().append_instruction(arg)
+            elif isinstance(arg, IRBasicBlock):
+                ctx.append_basic_block(arg)
+            else:
+                raise CompilerPanic("Bad venom injection")
     elif ir.value == "deploy":
         memsize = ir.args[0].value
         ir_runtime = ir.args[1]

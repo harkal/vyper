@@ -280,7 +280,7 @@ def _convert_ir_basicblock(ctx, ir, symbols, variables, allocated_variables):
     elif ir.value == "injectvenom":
         for arg in ir.passthrough_venom:
             if isinstance(arg, IRInstruction):
-                ctx.get_basic_block().append_instruction(arg)
+                ctx.get_basic_block().insert_instruction(arg)
             elif isinstance(arg, IRBasicBlock):
                 ctx.append_basic_block(arg)
             else:

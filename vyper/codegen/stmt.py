@@ -20,6 +20,7 @@ from vyper.codegen.core import (
     make_setter,
     pop_dyn_array,
     zero_pad,
+    _opt_experimental_codegen,
 )
 from vyper.codegen.expr import Expr
 from vyper.codegen.return_ import make_return_stmt
@@ -28,6 +29,7 @@ from vyper.exceptions import CompilerPanic, StructureException, TypeCheckFailure
 from vyper.semantics.types import DArrayT, MemberFunctionT
 from vyper.semantics.types.function import ContractFunctionT
 from vyper.semantics.types.shortcuts import INT256_T, UINT256_T
+from vyper.venom.basicblock import IRInstruction
 
 
 class Stmt:
@@ -37,6 +39,13 @@ class Stmt:
         fn = getattr(self, f"parse_{type(node).__name__}", None)
         if fn is None:
             raise TypeCheckFailure(f"Invalid statement node: {type(node).__name__}")
+
+        # If experimental codegen is enabled, try to use the experimental
+        # codegen function for this node type (if it exists)
+        if _opt_experimental_codegen or True:
+            venom_fn = getattr(self, f"parse_venom_{type(node).__name__}", None)
+            if venom_fn is not None:
+                fn = venom_fn
 
         with context.internal_memory_scope():
             self.ir_node = fn()
@@ -61,6 +70,18 @@ class Stmt:
             raise StructureException(f"Unsupported statement type: {type(self.stmt)}", self.stmt)
 
     def parse_AnnAssign(self):
+        ltyp = self.stmt.target._metadata["type"]
+        varname = self.stmt.target.id
+        alloced = self.context.new_variable(varname, ltyp)
+
+        assert self.stmt.value is not None
+        rhs = Expr(self.stmt.value, self.context).ir_node
+
+        lhs = IRnode.from_list(alloced, typ=ltyp, location=MEMORY)
+
+        return make_setter(lhs, rhs)
+
+    def parse_venom_AnnAssign(self):
         ltyp = self.stmt.target._metadata["type"]
         varname = self.stmt.target.id
         alloced = self.context.new_variable(varname, ltyp)
@@ -116,6 +137,14 @@ class Stmt:
                 data_ir.append(arg)
 
         return events.ir_node_for_log(self.stmt, event, topic_ir, data_ir, self.context)
+
+    def parse_venom_Log(self):
+        ir = self.parse_Log()
+        vir = IRInstruction("log", ir.args)
+        new_ir = IRnode.from_list("injectvenom")
+        new_ir.annotation = str(vir)
+        new_ir.passthrough_venom = [vir]
+        return new_ir
 
     def parse_Call(self):
         if isinstance(self.stmt.func, vy_ast.Name):

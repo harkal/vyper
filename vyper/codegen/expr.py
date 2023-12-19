@@ -20,6 +20,7 @@ from vyper.codegen.core import (
     shl,
     shr,
     unwrap_location,
+    _opt_experimental_codegen,
 )
 from vyper.codegen.ir_node import IRnode
 from vyper.codegen.keccak256_helper import keccak256_helper
@@ -78,6 +79,13 @@ class Expr:
         fn = getattr(self, f"parse_{type(node).__name__}", None)
         if fn is None:
             raise TypeCheckFailure(f"Invalid statement node: {type(node).__name__}", node)
+
+        # If experimental codegen is enabled, try to use the experimental
+        # codegen function for this node type (if it exists)
+        if _opt_experimental_codegen:
+            venom_fn = getattr(self, f"parse_venom_{type(node).__name__}", None)
+            if venom_fn is not None:
+                fn = venom_fn
 
         self.ir_node = fn()
         if self.ir_node is None:

@@ -539,7 +539,7 @@ def _convert_ir_bb(ctx, ir, symbols):
             ctx.get_basic_block().append_instruction("alloca", *ir.passthrough_metadata["alloca"])
         return symbols[ir.value]
     elif ir.is_literal:
-        return IRLiteral(ir.value)
+        return ctx.get_basic_block().append_instruction("store", IRLiteral(ir.value))
     else:
         raise Exception(f"Unknown IR node: {ir}")
 

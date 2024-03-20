@@ -529,6 +529,10 @@ class VenomCompiler:
         if inst.output is not None:
             if inst.output not in next_liveness:
                 self.pop(assembly, stack)
+            elif len(next_liveness) > 0 and stack.height > 0:
+                next_top = next(reversed(next_liveness))
+                if stack.peek(0) != next_top:
+                    self.swap_op(assembly, stack, next(reversed(next_liveness)))
 
         return apply_line_numbers(inst, assembly)
 

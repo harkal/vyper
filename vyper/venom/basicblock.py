@@ -284,6 +284,9 @@ class IRInstruction:
         """
         return [self.output] if self.output else []
 
+    def can_reorder(self, other: IRInstruction):
+        return (self.parent, self.fence_id) == (other.parent, other.fence_id)
+
     def replace_operands(self, replacements: dict) -> None:
         """
         Update operands with replacements.

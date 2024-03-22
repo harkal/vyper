@@ -286,6 +286,9 @@ class IRInstruction:
         """
         return [self.output] if self.output else []
 
+    def can_reorder(self, other: "IRInstruction") -> bool:
+        return (self.parent, self.fence_id) == (other.parent, other.fence_id)
+
     def replace_operands(self, replacements: dict) -> None:
         """
         Update operands with replacements.
@@ -344,7 +347,7 @@ def _ir_operand_from_value(val: Any) -> IROperand:
     if isinstance(val, IROperand):
         return val
 
-    assert isinstance(val, int), val
+    assert isinstance(val, int), (type(val), val)
     return IRLiteral(val)
 
 

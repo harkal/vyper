@@ -527,8 +527,12 @@ class VenomCompiler:
 
         # Step 6: Emit instructions output operands (if any)
         if inst.output is not None:
-            if "call" in inst.opcode and inst.output not in next_liveness:
+            if inst.output not in next_liveness:
                 self.pop(assembly, stack)
+            elif len(next_liveness) > 0 and stack.height > 0:
+                next_top = next(reversed(next_liveness))
+                if stack.peek(0) != next_top:
+                    self.swap_op(assembly, stack, next_top)
 
         return apply_line_numbers(inst, assembly)
 

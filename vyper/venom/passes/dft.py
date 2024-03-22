@@ -1,18 +1,21 @@
 from vyper.utils import OrderedSet
 from vyper.venom.analysis import DFG
-from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRVariable
+from vyper.venom.basicblock import BB_TERMINATORS, IRBasicBlock, IRInstruction, IRVariable
 from vyper.venom.function import IRFunction
 from vyper.venom.passes.base_pass import IRPass
 
 
 class DFTPass(IRPass):
-    def _process_instruction_r(self, bb: IRBasicBlock, inst: IRInstruction):
+    def _process_instruction_r(self, bb: IRBasicBlock, inst: IRInstruction, pin: IRInstruction):
         for op in inst.get_outputs():
-            assert isinstance(op, IRVariable)  # help mypy
-            for uses_this in self.dfg.get_uses(op):
+            assert isinstance(op, IRVariable), f"expected variable, got {op}"
+            uses = self.dfg.get_uses(op)
+
+            for uses_this in uses:
                 if not uses_this.can_reorder(inst):
                     continue
-                self._process_instruction_r(bb, uses_this)
+
+                self._process_instruction_r(bb, uses_this, pin)
 
         if inst in self.visited_instructions:
             return
@@ -30,23 +33,30 @@ class DFTPass(IRPass):
             assert target is not None, f"no producing instruction for {op}"
             if not target.can_reorder(inst):
                 continue
-            self._process_instruction_r(bb, target)
+            self._process_instruction_r(bb, target, pin)
+
+        # force terminating instruction to come after everything else in the block
+        if inst.opcode in BB_TERMINATORS:
+            for target in pin:
+                self._process_instruction_r(bb, target, pin)
 
         bb.instructions.append(inst)
 
     def _process_basic_block(self, bb: IRBasicBlock) -> None:
         self.ctx.append_basic_block(bb)
 
-        instructions = bb.instructions
-        bb.instructions = []
-
-        for inst in instructions:
+        for inst in bb.instructions:
             inst.fence_id = self.fence_id
             if inst.volatile:
                 self.fence_id += 1
 
+        # We go throught the instructions and calculate the order in which they should be executed
+        # based on the data flow graph. This order is stored in the inst_order dictionary.
+        # We then sort the instructions based on this order.
+        instructions = bb.instructions
+        bb.instructions = []
         for inst in instructions:
-            self._process_instruction_r(bb, inst)
+            self._process_instruction_r(bb, inst, instructions)
 
     def _run_pass(self, ctx: IRFunction) -> None:
         self.ctx = ctx

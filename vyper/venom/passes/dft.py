@@ -51,9 +51,8 @@ class DFTPass(IRPass):
             if inst.volatile:
                 self.fence_id += 1
 
-        # We go throught the instructions and calculate the order in which they should be executed
-        # based on the data flow graph. This order is stored in the inst_order dictionary.
-        # We then sort the instructions based on this order.
+        # We go through the instructions and calculate the order in which
+        # they should be executed based on the data flow graph.
         instructions = bb.instructions
         bb.instructions = []
         for inst in instructions:

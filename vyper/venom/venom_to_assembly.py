@@ -532,7 +532,7 @@ class VenomCompiler:
             elif len(next_liveness) > 0 and stack.height > 0:
                 next_top = next(reversed(next_liveness))
                 if stack.peek(0) != next_top:
-                    self.swap_op(assembly, stack, next(reversed(next_liveness)))
+                    self.swap_op(assembly, stack, next_top)
 
         return apply_line_numbers(inst, assembly)
 

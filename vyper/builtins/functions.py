@@ -2101,7 +2101,11 @@ class Uint2Str(BuiltinFunctionT):
                     ],
                     [
                         "seq",
-                        ["mstore", ["sub", add_ofst(buf, n_digits), i], ["add", 48, ["mod", val, 10]]],
+                        [
+                            "mstore",
+                            ["sub", add_ofst(buf, n_digits), i],
+                            ["add", 48, ["mod", val, 10]],
+                        ],
                         ["set", val, ["div", val, 10]],
                     ],
                 ],
@@ -2441,13 +2445,17 @@ class ABIEncode(BuiltinFunctionT):
             # overwrite the 28 bytes of zeros with the bytestring length
             ret += [["mstore", add_ofst(buf, 4), method_id]]
             # abi encode, and grab length as stack item
-            length = abi_encode(add_ofst(buf, 36), encode_input, context, returns_len=True, bufsz=maxlen)
+            length = abi_encode(
+                add_ofst(buf, 36), encode_input, context, returns_len=True, bufsz=maxlen
+            )
             # write the output length to where bytestring stores its length
             ret += [["mstore", buf, ["add", length, 4]]]
 
         else:
             # abi encode and grab length as stack item
-            length = abi_encode(add_ofst(buf, 32), encode_input, context, returns_len=True, bufsz=maxlen)
+            length = abi_encode(
+                add_ofst(buf, 32), encode_input, context, returns_len=True, bufsz=maxlen
+            )
             # write the output length to where bytestring stores its length
             ret += [["mstore", buf, length]]
 

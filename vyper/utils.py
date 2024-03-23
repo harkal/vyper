@@ -1,10 +1,10 @@
 import binascii
-import itertools
 import contextlib
 import decimal
 import enum
 import functools
 import hashlib
+import itertools
 import sys
 import time
 import traceback

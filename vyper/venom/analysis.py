@@ -1,5 +1,5 @@
-from typing import Optional
 import itertools
+from typing import Optional
 
 from vyper.exceptions import CompilerPanic
 from vyper.utils import OrderedSet

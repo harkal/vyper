@@ -16,6 +16,7 @@ PINNING_INSTRUCTIONS = {
     "revert": 0,
     "create": 1,
     "create2": 1,
+    "iload": 0,
 }
 
 POINTER = dict(mstore=0, mload=0, **PINNING_INSTRUCTIONS)
@@ -85,17 +86,22 @@ class Mem2Stack(IRPass):
             # already poisoned
             return poison
 
+        print("ENTER", inst)
+
         # poison all uses of this alloca
         outputs = inst.get_outputs()
         for op in outputs:
             targets = self.dfg.get_uses(op)
             pre = poison
             for target in targets:
+                print("POISON DOWN", poison, target)
                 poison |= self._find_pins_r(target, poison=poison)
             if poison != pre:
                 # we found a descendant who is poisoned; spread the
                 # poison to all descendants
+                print("REDO", inst)
                 for target in targets:
+                    print("POISON DOWN", poison, target)
                     self._find_pins_r(target, poison=poison)
 
         self.pins[inst] = poison
@@ -106,6 +112,7 @@ class Mem2Stack(IRPass):
             ptr = inst.operands[ix]
             if isinstance(ptr, IRVariable):
                 target = self.dfg.get_producing_instruction(ptr)
+                print("POISON UP", poison, target)
                 self._find_pins_r(target, poison=poison)
 
         return poison

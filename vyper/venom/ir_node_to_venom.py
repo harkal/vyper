@@ -438,20 +438,12 @@ def _convert_ir_bb(ctx, ir, symbols):
     elif ir.value == "mload":
         arg_0 = _convert_ir_bb(ctx, ir.args[0], symbols)
         bb = ctx.get_basic_block()
-        s = f"$$alloca{arg_0}"
-        if s in symbols:
-            return symbols[s]
-
         return bb.append_instruction("mload", arg_0)
 
     elif ir.value == "mstore":
         arg_0, arg_1 = _convert_ir_bb_list(ctx, ir.args, symbols)
-        s = f"$$alloca{arg_0}"
-        if s in symbols:
-            symbols[s] = ctx.get_basic_block().append_instruction("store", arg_1)
-            return
-
         return ctx.get_basic_block().append_instruction("mstore", arg_0, arg_1)
+
     elif ir.value == "ceil32":
         x = ir.args[0]
         expanded = IRnode.from_list(["and", ["add", x, 31], ["not", 31]])
@@ -549,10 +541,6 @@ def _convert_ir_bb(ctx, ir, symbols):
         if ir.value.startswith("$alloca") and ir.value not in symbols:
             alloca = ir.passthrough_metadata["alloca"]
             ptr = ctx.get_basic_block().append_instruction("alloca", alloca.offset, alloca.size)
-            # tired: keep a separate map of alloca'ed symbols
-            # wired: use magic prefixes to indicate separate map
-            s = f"$$alloca{ptr}"
-            symbols[s] = ir.value
             symbols[ir.value] = ptr
         return symbols[ir.value]
     elif ir.is_literal:

@@ -2,15 +2,23 @@
 "mem2stack" algorithm for vyper, basically takes allocas
 and tries to elide them where possible
 """
-from vyper.utils import OrderedSet
-from vyper.venom.analysis import DFG, calculate_cfg, calculate_liveness
-from vyper.venom.basicblock import BB_TERMINATORS, IRBasicBlock, IRInstruction, IRVariable
+from vyper.venom.analysis import DFG
+from vyper.venom.basicblock import IRBasicBlock, IRVariable
 from vyper.venom.function import IRFunction
 from vyper.venom.passes.base_pass import IRPass
 
-PINNING_INSTRUCTIONS = frozenset(
-    ["call", "staticcall", "delegatecall", "return", "revert", "create", "create2"]
-)
+# could be frozen / "ProxymappingType"
+PINNING_INSTRUCTIONS = {
+    "call": 3,
+    "staticcall": 2,
+    "delegatecall": 2,
+    "return": 0,
+    "revert": 0,
+    "create": 1,
+    "create2": 1,
+}
+
+POINTER = dict(mstore=0, mload=0, **PINNING_INSTRUCTIONS)
 
 
 class Mem2Stack(IRPass):
@@ -23,32 +31,39 @@ class Mem2Stack(IRPass):
         for inst in instructions:
             if inst.opcode == "mload" and not self.pins[inst]:
                 ptr = inst.operands[0]
-                origin = self.dfg.get_producing_instruction(ptr)
+                origin = self.dfg.get_producing_instruction(ptr)  # type: ignore
                 if origin is not None and origin.opcode == "alloca":
+                    assert isinstance(inst.output, IRVariable)  # help mypy
                     if ptr not in self.allocas:
-                        # we haven't seen this location yet; it's ok, we allocate a virtual
-                        # register, run the mload and then put the result of that into the
-                        # virtual register
+                        # we haven't seen this location yet; it's ok, we
+                        # allocate a virtual register, run the mload and then
+                        # put the result of that into the virtual register
                         bb.instructions.append(inst)
                         self.allocas[ptr] = bb.append_instruction("store", inst.output)
                     else:
-                        # assign the virtual register for this alloca to the output of mload
+                        # we have already allocated a virtual register, so we
+                        # just need to ensure the input of store points to the
+                        # existing virtual register, and the output points to
+                        # whatever mload was going to output to.
                         bb.append_instruction("store", self.allocas[ptr], ret=inst.output)
-                        bb.instructions.append(inst)
                     continue
             elif inst.opcode == "mstore" and not self.pins[inst]:
                 val, ptr = inst.operands
-                origin = self.dfg.get_producing_instruction(ptr)
+                origin = self.dfg.get_producing_instruction(ptr)  # type: ignore
                 if origin is not None and origin.opcode == "alloca":
-                    if ptr in self.allocas:
-                        # take the value and assign it into the virtual register for
-                        # this alloca instead of actually running the mstore
-                        # note this overwrites the virtual register. this will be fixed up in
-                        # make_ssa.
-                        bb.append_instruction("store", val, ret=self.allocas[ptr])
-                    else:
-                        # ditto, but also allocate a virtual register for this alloca
+                    if ptr not in self.allocas:
+                        # allocate a virtual register for this memory location,
+                        # then take the value and assign it into the virtual
+                        # register for this alloca (instead of actually running
+                        # the mstore).
+                        # note this overwrites the virtual register. this will
+                        # be fixed up in make_ssa.
                         self.allocas[ptr] = bb.append_instruction("store", val)
+                    else:
+                        # ditto, but we have already allocated a virtual register,
+                        # so we just need to ensure the output of store points to
+                        # the existing virtual register
+                        bb.append_instruction("store", val, ret=self.allocas[ptr])
                     continue
 
             bb.instructions.append(inst)
@@ -59,12 +74,41 @@ class Mem2Stack(IRPass):
     # store before a pinning instruction).
     def _find_pins(self, ctx):
         self.pins = {}
-
         for bb in ctx.basic_blocks:
             for inst in bb.instructions:
-                uses = self.dfg.get_uses(inst)
-                pin = any(t.opcode in PINNING_INSTRUCTIONS for t in uses)
-                self.pins[inst] = pin
+                self._find_pins_r(inst)
+
+    def _find_pins_r(self, inst, poison=False):
+        poison = poison or inst.opcode in PINNING_INSTRUCTIONS
+
+        if inst in self.pins and poison == self.pins[inst]:
+            # already poisoned
+            return poison
+
+        # poison all uses of this alloca
+        outputs = inst.get_outputs()
+        for op in outputs:
+            targets = self.dfg.get_uses(op)
+            pre = poison
+            for target in targets:
+                poison |= self._find_pins_r(target, poison=poison)
+            if poison != pre:
+                # we found a descendant who is poisoned; spread the
+                # poison to all descendants
+                for target in targets:
+                    self._find_pins_r(target, poison=poison)
+
+        self.pins[inst] = poison
+
+        if inst.opcode in POINTER:
+            # IRInstruction operands are reversed from what you expect
+            ix = -POINTER[inst.opcode] - 1
+            ptr = inst.operands[ix]
+            if isinstance(ptr, IRVariable):
+                target = self.dfg.get_producing_instruction(ptr)
+                self._find_pins_r(target, poison=poison)
+
+        return poison
 
     def _collect_allocas(self, ctx):
         self.allocas = {}
@@ -79,6 +123,5 @@ class Mem2Stack(IRPass):
         basic_blocks = ctx.basic_blocks
         ctx.basic_blocks = []
 
-        self.seen = {}
         for bb in basic_blocks:
             self._process_basic_block(bb)

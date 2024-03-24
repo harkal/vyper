@@ -3,12 +3,15 @@
 and tries to elide them where possible
 """
 from vyper.utils import OrderedSet
-from vyper.venom.analysis import DFG, calculate_liveness, calculate_cfg
+from vyper.venom.analysis import DFG, calculate_cfg, calculate_liveness
 from vyper.venom.basicblock import BB_TERMINATORS, IRBasicBlock, IRInstruction, IRVariable
 from vyper.venom.function import IRFunction
 from vyper.venom.passes.base_pass import IRPass
 
-PINNING_INSTRUCTIONS = frozenset(["call", "staticcall", "delegatecall", "return", "revert", "create", "create2"])
+PINNING_INSTRUCTIONS = frozenset(
+    ["call", "staticcall", "delegatecall", "return", "revert", "create", "create2"]
+)
+
 
 class Mem2Stack(IRPass):
     def _process_basic_block(self, bb: IRBasicBlock) -> None:
@@ -30,7 +33,7 @@ class Mem2Stack(IRPass):
                         self.allocas[ptr] = bb.append_instruction("store", inst.output)
                     else:
                         # assign the virtual register for this alloca to the output of mload
-                        inst = IRInstruction("store", [self.allocas[ptr]], output=inst.output)
+                        bb.append_instruction("store", self.allocas[ptr], ret=inst.output)
                         bb.instructions.append(inst)
                     continue
             elif inst.opcode == "mstore" and not self.pins[inst]:
@@ -42,8 +45,7 @@ class Mem2Stack(IRPass):
                         # this alloca instead of actually running the mstore
                         # note this overwrites the virtual register. this will be fixed up in
                         # make_ssa.
-                        inst = IRInstruction("store", [val], output=self.allocas[ptr])
-                        bb.instructions.append(inst)
+                        bb.append_instruction("store", val, ret=self.allocas[ptr])
                     else:
                         # ditto, but also allocate a virtual register for this alloca
                         self.allocas[ptr] = bb.append_instruction("store", val)

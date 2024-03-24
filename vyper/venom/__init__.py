@@ -16,8 +16,8 @@ from vyper.venom.function import IRFunction
 from vyper.venom.ir_node_to_venom import ir_node_to_venom
 from vyper.venom.passes.constant_propagation import ir_pass_constant_propagation
 from vyper.venom.passes.dft import DFTPass
-from vyper.venom.passes.mem2stack import Mem2Stack
 from vyper.venom.passes.make_ssa import MakeSSA
+from vyper.venom.passes.mem2stack import Mem2Stack
 from vyper.venom.passes.normalization import NormalizationPass
 from vyper.venom.passes.simplify_cfg import SimplifyCFGPass
 from vyper.venom.venom_to_assembly import VenomCompiler

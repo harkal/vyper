@@ -1,4 +1,3 @@
-import itertools
 from typing import Optional
 
 from vyper.exceptions import CompilerPanic

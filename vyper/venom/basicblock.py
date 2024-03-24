@@ -1,5 +1,4 @@
 from enum import Enum, auto
-from functools import cached_property
 from typing import TYPE_CHECKING, Any, Generator, Iterator, Optional, Union
 
 from vyper.utils import OrderedSet
@@ -326,7 +325,7 @@ class IRInstruction:
         s += opcode
         operands = self.operands
         if opcode not in ["jmp", "jnz", "invoke"]:
-            operands = reversed(operands)
+            operands = reversed(operands)  # type: ignore
         s += ", ".join(
             [(f"label %{op}" if isinstance(op, IRLabel) else str(op)) for op in operands]
         )

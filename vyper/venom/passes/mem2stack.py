@@ -9,17 +9,16 @@ from vyper.venom.passes.base_pass import IRPass
 
 # could be frozen / "ProxymappingType"
 PINNING_INSTRUCTIONS = {
-    "call": 3,
-    "staticcall": 2,
-    "delegatecall": 2,
-    "return": 0,
-    "revert": 0,
-    "create": 1,
-    "create2": 1,
-    "iload": 0,
+    "call": [3],
+    "staticcall": [2],
+    "delegatecall": [2],
+    "return": [0],
+    "revert": [0],
+    "create": [1],
+    "create2": [1],
 }
 
-POINTER = dict(mstore=0, mload=0, **PINNING_INSTRUCTIONS)
+POINTER = dict(mstore=[0], mload=[0], **PINNING_INSTRUCTIONS)
 
 
 class Mem2Stack(IRPass):
@@ -86,7 +85,9 @@ class Mem2Stack(IRPass):
             # already poisoned
             return poison
 
-        print("ENTER", inst)
+        self.pins[inst] = poison
+        if not poison:
+            return
 
         # poison all uses of this alloca
         outputs = inst.get_outputs()
@@ -94,26 +95,16 @@ class Mem2Stack(IRPass):
             targets = self.dfg.get_uses(op)
             pre = poison
             for target in targets:
-                print("POISON DOWN", poison, target)
-                poison |= self._find_pins_r(target, poison=poison)
-            if poison != pre:
-                # we found a descendant who is poisoned; spread the
-                # poison to all descendants
-                print("REDO", inst)
-                for target in targets:
-                    print("POISON DOWN", poison, target)
-                    self._find_pins_r(target, poison=poison)
-
-        self.pins[inst] = poison
+                self._find_pins_r(target, poison=pre)
 
         if inst.opcode in POINTER:
-            # IRInstruction operands are reversed from what you expect
-            ix = -POINTER[inst.opcode] - 1
-            ptr = inst.operands[ix]
-            if isinstance(ptr, IRVariable):
-                target = self.dfg.get_producing_instruction(ptr)
-                print("POISON UP", poison, target)
-                self._find_pins_r(target, poison=poison)
+            for ix in POINTER[inst.opcode]:
+                # IRInstruction operands are reversed from what you expect
+                rix = -ix - 1
+                ptr = inst.operands[rix]
+                if isinstance(ptr, IRVariable):
+                    target = self.dfg.get_producing_instruction(ptr)
+                    self._find_pins_r(target, poison=poison)
 
         return poison
 

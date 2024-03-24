@@ -62,9 +62,14 @@ PASS_THROUGH_INSTRUCTIONS = frozenset(
         "gasprice",
         "gaslimit",
         "returndatasize",
+        "mload",
+        "mstore",
         "iload",
+        "istore",
         "sload",
+        "sstore",
         "tload",
+        "tstore",
         "coinbase",
         "number",
         "prevrandao",
@@ -89,9 +94,6 @@ PASS_THROUGH_INSTRUCTIONS = frozenset(
         "codecopy",
         "returndatacopy",
         "revert",
-        "istore",
-        "sstore",
-        "tstore",
         "create",
         "create2",
         "addmod",
@@ -434,16 +436,6 @@ def _convert_ir_bb(ctx, ir, symbols):
         src = bb.append_instruction("add", src_offset, IRLabel("code_end"))
         bb.append_instruction("dloadbytes", len_, src, dst)
         return None
-
-    elif ir.value == "mload":
-        arg_0 = _convert_ir_bb(ctx, ir.args[0], symbols)
-        bb = ctx.get_basic_block()
-        return bb.append_instruction("mload", arg_0)
-
-    elif ir.value == "mstore":
-        arg_0, arg_1 = _convert_ir_bb_list(ctx, ir.args, symbols)
-        return ctx.get_basic_block().append_instruction("mstore", arg_0, arg_1)
-
     elif ir.value == "ceil32":
         x = ir.args[0]
         expanded = IRnode.from_list(["and", ["add", x, 31], ["not", 31]])

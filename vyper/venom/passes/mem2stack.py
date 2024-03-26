@@ -46,36 +46,36 @@ class Mem2Stack(IRPass):
                 origin = self.dfg.get_producing_instruction(ptr)  # type: ignore
                 if origin is not None and origin.opcode == "alloca":
                     assert isinstance(inst.output, IRVariable)  # help mypy
-                    if ptr not in self.allocas:
+                    if ptr not in self.alloca_regs:
                         # we haven't seen this location yet; it's ok, we
                         # allocate a virtual register, run the mload and then
                         # put the result of that into the virtual register
                         bb.instructions.append(inst)
-                        self.allocas[ptr] = bb.append_instruction("store", inst.output)
+                        self.alloca_regs[ptr] = bb.append_instruction("store", inst.output)
                     else:
                         # we have already allocated a virtual register, so we
                         # just need to ensure the input of store points to the
                         # existing virtual register, and the output points to
                         # whatever mload was going to output to.
-                        bb.append_instruction("store", self.allocas[ptr], ret=inst.output)
+                        bb.append_instruction("store", self.alloca_regs[ptr], ret=inst.output)
                     continue
             if inst.opcode == "mstore":
                 val, ptr = inst.operands
                 origin = self.dfg.get_producing_instruction(ptr)  # type: ignore
                 if origin is not None and origin.opcode == "alloca":
-                    if ptr not in self.allocas:
+                    if ptr not in self.alloca_regs:
                         # allocate a virtual register for this memory location,
                         # then take the value and assign it into the virtual
                         # register for this alloca (instead of actually running
                         # the mstore).
                         # note this overwrites the virtual register. this will
                         # be fixed up in make_ssa.
-                        self.allocas[ptr] = bb.append_instruction("store", val)
+                        self.alloca_regs[ptr] = bb.append_instruction("store", val)
                     else:
                         # ditto, but we have already allocated a virtual register,
                         # so we just need to ensure the output of store points to
                         # the existing virtual register
-                        bb.append_instruction("store", val, ret=self.allocas[ptr])
+                        bb.append_instruction("store", val, ret=self.alloca_regs[ptr])
                     continue
 
             if inst.opcode in MUST_FLUSH:
@@ -93,12 +93,12 @@ class Mem2Stack(IRPass):
                     # IRInstruction operands are reversed from what you expect
                     rix = -ix - 1
                     ptr = inst.operands[rix]
-                    self._volatile_r(ptr)
+                    self._volatile_r(ptr, inst, bb)
 
     def _flush_r(self, ptr, inst, bb):
         # flush to memory
-        if ptr in self.allocas:
-            val = self.allocas[ptr]
+        if ptr in self.alloca_regs:
+            val = self.alloca_regs[ptr]
             bb.append_instruction("mstore", val, ptr)
         else:
             # recurse
@@ -109,8 +109,8 @@ class Mem2Stack(IRPass):
 
     def _volatile_r(self, ptr, inst, bb):
         # invalidate cache
-        if ptr in self.allocas:
-            del self.allocas[ptr]
+        if ptr in self.alloca_regs:
+            del self.alloca_regs[ptr]
         else:
             # recurse
             op = self.dfg.get_producing_instruction(ptr)
@@ -121,7 +121,7 @@ class Mem2Stack(IRPass):
     def _run_pass(self, ctx: IRFunction) -> None:
         self.ctx = ctx
         self.dfg = DFG.build_dfg(ctx)
-        self.allocas: dict = {}
+        self.alloca_regs: dict = {}
 
         basic_blocks = ctx.basic_blocks
         ctx.basic_blocks = []

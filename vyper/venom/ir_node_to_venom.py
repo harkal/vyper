@@ -1,3 +1,4 @@
+import contextlib
 import functools
 import re
 from typing import Optional
@@ -61,9 +62,14 @@ PASS_THROUGH_INSTRUCTIONS = frozenset(
         "gasprice",
         "gaslimit",
         "returndatasize",
+        "mload",
+        "mstore",
         "iload",
+        "istore",
         "sload",
+        "sstore",
         "tload",
+        "tstore",
         "coinbase",
         "number",
         "prevrandao",
@@ -88,9 +94,6 @@ PASS_THROUGH_INSTRUCTIONS = frozenset(
         "codecopy",
         "returndatacopy",
         "revert",
-        "istore",
-        "sstore",
-        "tstore",
         "create",
         "create2",
         "addmod",
@@ -231,6 +234,20 @@ def pop_source_on_return(func):
     return pop_source
 
 
+@contextlib.contextmanager
+def pushvar(map_, key, value):
+    SENTINEL = object()
+    old = map_.get(key, SENTINEL)
+    map_[key] = value
+    try:
+        yield
+    finally:
+        if old is not SENTINEL:
+            map_[key] = old
+        else:
+            del map_[key]
+
+
 @pop_source_on_return
 def _convert_ir_bb(ctx, ir, symbols):
     assert isinstance(ir, IRnode), ir
@@ -345,13 +362,10 @@ def _convert_ir_bb(ctx, ir, symbols):
 
         ret = ctx.get_basic_block().append_instruction("store", ret)
 
-        # Handle with nesting with same symbol
-        with_symbols = symbols.copy()
-
         sym = ir.args[0]
-        with_symbols[sym.value] = ret
+        with pushvar(symbols, sym.value, ret):
+            return _convert_ir_bb(ctx, ir.args[2], symbols)  # body
 
-        return _convert_ir_bb(ctx, ir.args[2], with_symbols)  # body
     elif ir.value == "goto":
         _append_jmp(ctx, IRLabel(ir.args[0].value))
     elif ir.value == "djump":
@@ -422,26 +436,6 @@ def _convert_ir_bb(ctx, ir, symbols):
         src = bb.append_instruction("add", src_offset, IRLabel("code_end"))
         bb.append_instruction("dloadbytes", len_, src, dst)
         return None
-
-    elif ir.value == "mload":
-        arg_0 = _convert_ir_bb(ctx, ir.args[0], symbols)
-        bb = ctx.get_basic_block()
-        if isinstance(arg_0, IRVariable):
-            return bb.append_instruction("mload", arg_0)
-
-        if isinstance(arg_0, IRLiteral):
-            avar = symbols.get(f"%{arg_0.value}")
-            if avar is not None:
-                return bb.append_instruction("mload", avar)
-
-        return bb.append_instruction("mload", arg_0)
-    elif ir.value == "mstore":
-        arg_1, arg_0 = _convert_ir_bb_list(ctx, reversed(ir.args), symbols)
-
-        if isinstance(arg_1, IRVariable):
-            symbols[f"&{arg_0.value}"] = arg_1
-
-        ctx.get_basic_block().append_instruction("mstore", arg_1, arg_0)
     elif ir.value == "ceil32":
         x = ir.args[0]
         expanded = IRnode.from_list(["and", ["add", x, 31], ["not", 31]])
@@ -531,9 +525,11 @@ def _convert_ir_bb(ctx, ir, symbols):
         ctx.get_basic_block().append_instruction("log", topic_count, *args)
     elif isinstance(ir.value, str) and ir.value.upper() in get_opcodes():
         _convert_ir_opcode(ctx, ir, symbols)
-    elif isinstance(ir.value, str) and ir.value in symbols:
-        if "alloca" in ir.passthrough_metadata:
-            ctx.get_basic_block().append_instruction("alloca", *ir.passthrough_metadata["alloca"])
+    elif isinstance(ir.value, str):
+        if ir.value.startswith("$alloca") and ir.value not in symbols:
+            alloca = ir.passthrough_metadata["alloca"]
+            ptr = ctx.get_basic_block().append_instruction("alloca", alloca.offset, alloca.size)
+            symbols[ir.value] = ptr
         return symbols[ir.value]
     elif ir.is_literal:
         return IRLiteral(ir.value)

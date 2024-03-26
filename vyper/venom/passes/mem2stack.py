@@ -90,7 +90,6 @@ class Mem2Stack(IRPass):
             if inst.opcode in VOLATILE:
                 # flush to memory
                 for ix in VOLATILE[inst.opcode]:
-                    break
                     # IRInstruction operands are reversed from what you expect
                     rix = -ix - 1
                     ptr = inst.operands[rix]

@@ -66,7 +66,6 @@ def _run_passes(ctx: IRFunction, optimize: OptimizationLevel) -> None:
     for entry in internals:
         MakeSSA.run_pass(ctx, entry)
 
-
     while True:
         changes = 0
 

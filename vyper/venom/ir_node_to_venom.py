@@ -165,7 +165,7 @@ def _handle_self_call(fn: IRFunction, ir: IRnode, symbols: SymbolTable) -> Optio
     stack_args = []
 
     if setup_ir != goto_ir:
-        if not ir.is_self_call:
+        if not setup_ir.contains_self_call:
             if setup_ir.value == "seq":
                 if len(setup_ir.args) == 2 and \
                 setup_ir.args[0].value == "seq" and  \

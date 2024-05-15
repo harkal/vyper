@@ -168,7 +168,9 @@ def _handle_self_call(fn: IRFunction, ir: IRnode, symbols: SymbolTable) -> Optio
     if setup_ir != goto_ir:
         # _convert_ir_bb(fn, setup_ir, symbols)
         if setup_ir.value == "seq":
-            if len(setup_ir.args) == 2 and setup_ir.args[1].value == "seq" and setup_ir.args[1].value == "seq":
+            if len(setup_ir.args) == 2 and \
+              setup_ir.args[0].value == "seq" and  \
+              setup_ir.args[1].value == "seq":
                 setup_ir = setup_ir.args[0].args
             else:                
                 setup_ir = setup_ir.args

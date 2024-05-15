@@ -3,6 +3,7 @@
 
 from typing import Optional
 
+from vyper.venom.passes.func_inliner import FuncInlinerPass
 from vyper.codegen.ir_node import IRnode
 from vyper.compiler.settings import OptimizationLevel
 from vyper.venom.analysis.analysis import IRAnalysesCache
@@ -49,6 +50,9 @@ def _run_passes(fn: IRFunction, optimize: OptimizationLevel) -> None:
     Mem2Var(ac, fn).run_pass()
     MakeSSA(ac, fn).run_pass()
     SCCP(ac, fn).run_pass()
+
+    FuncInlinerPass(ac, fn).run_pass()
+
     StoreElimination(ac, fn).run_pass()
     SimplifyCFGPass(ac, fn).run_pass()
     RemoveUnusedVariablesPass(ac, fn).run_pass()

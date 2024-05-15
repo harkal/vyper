@@ -1,6 +1,6 @@
-from typing import Optional
+from typing import Iterator, Optional
 
-from vyper.venom.basicblock import IRInstruction, IRLabel, IROperand
+from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel, IROperand
 from vyper.venom.function import IRFunction
 
 
@@ -17,6 +17,11 @@ class IRContext:
         self.immutables_len = None
         self.data_segment = []
         self.last_label = 0
+
+    def get_basic_blocks(self) -> Iterator[IRBasicBlock]:
+        for fn in self.functions.values():
+            for bb in fn.get_basic_blocks():
+                yield bb
 
     def add_function(self, fn: IRFunction) -> None:
         fn.ctx = self

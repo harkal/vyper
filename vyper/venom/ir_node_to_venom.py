@@ -165,39 +165,7 @@ def _handle_self_call(fn: IRFunction, ir: IRnode, symbols: SymbolTable) -> Optio
     stack_args = []
 
     if setup_ir != goto_ir:
-        if not setup_ir.contains_self_call:
-            if setup_ir.value == "seq":
-                if len(setup_ir.args) == 2 and \
-                setup_ir.args[0].value == "seq" and  \
-                setup_ir.args[1].value == "seq":
-                    setup_ir = setup_ir.args[0].args
-                else:                
-                    setup_ir = setup_ir.args
-            else:
-                setup_ir = [setup_ir]
-            final_setup_ir = []
-
-            for i, arg in enumerate(func_t.arguments):
-                ir = setup_ir[i]
-                if arg.typ.memory_bytes_required == 32 and ir.value == "mstore":
-                    offset = ir.args[0].value
-                    if isinstance(offset, int):
-                        bb = fn.get_basic_block()
-                        param_val = _convert_ir_bb(fn, ir.args[1], symbols)
-                        ret = bb.append_instruction("store", param_val)
-                        stack_args.append(ret)
-                        param = IRParameter()
-                        param.offset = offset
-                        param.size = 32
-                        param.call_site_var = ret
-                        fn_new.args.append(param)
-                        continue
-                
-                final_setup_ir.append(ir)
-
-            _convert_ir_bb_list(fn, final_setup_ir, symbols)
-        else:
-            _convert_ir_bb(fn, setup_ir, symbols)
+        _convert_ir_bb(fn, setup_ir, symbols)
 
     return_buf = _convert_ir_bb(fn, return_buf_ir, symbols)
 

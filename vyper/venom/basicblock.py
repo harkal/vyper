@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Iterator, Optional, Union
 
 from vyper.codegen.ir_node import IRnode
@@ -301,6 +302,18 @@ class IRInstruction:
             if inst.ast_source:
                 return inst.ast_source
         return self.parent.parent.ast_source
+    
+    def copy(self) -> "IRInstruction":
+        ops = [deepcopy(op) for op in self.operands]
+        inst = IRInstruction(self.opcode, ops, deepcopy(self.output))
+        inst.parent = self.parent
+        inst.liveness = self.liveness.copy()
+        inst.dup_requirements = self.dup_requirements.copy()
+        inst.fence_id = self.fence_id
+        inst.annotation = self.annotation
+        inst.ast_source = inst.ast_source
+        inst.error_msg = inst.error_msg
+        return inst
 
     def __repr__(self) -> str:
         s = ""
@@ -517,7 +530,7 @@ class IRBasicBlock:
     def copy(self, prefix: str = "") -> "IRBasicBlock":
         new_label = IRLabel(f"{prefix}{self.label.value}")
         bb = IRBasicBlock(new_label, self.parent)
-        bb.instructions = self.instructions.copy()
+        bb.instructions = [inst.copy() for inst in self.instructions]
         bb.cfg_in = self.cfg_in.copy()
         bb.cfg_out = self.cfg_out.copy()
         bb.out_vars = self.out_vars.copy()

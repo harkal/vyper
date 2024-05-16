@@ -1,7 +1,7 @@
 
 
 from vyper.venom.analysis.cfg import CFGAnalysis
-from vyper.venom.basicblock import IRBasicBlock, IRInstruction
+from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel
 from vyper.venom.context import IRContext
 from vyper.venom.passes.base_pass import IRPass
 
@@ -11,8 +11,10 @@ class FuncInlinerPass(IRPass):
     This pass inlines functions into the call sites.
     """
     ctx: IRContext
+    inline_count: int
 
     def run_pass(self):
+        self.inline_count = 0
         self.ctx = self.function.ctx
         func_call_sites = {fn: [] for fn in self.ctx.functions}
         
@@ -46,7 +48,8 @@ class FuncInlinerPass(IRPass):
         """
         Inline function into call site.
         """
-        prefix = "copy_"
+        prefix = f"inline_{self.inline_count}_"
+        self.inline_count += 1
         call_site_bb = call_site.parent
         call_site_func = call_site_bb.parent
 
@@ -60,13 +63,23 @@ class FuncInlinerPass(IRPass):
         func_copy = func.copy(prefix)
 
         for bb in func_copy.get_basic_blocks():
-            call_site_func.append_basic_block(bb)
             bb.parent = call_site_func
+            call_site_func.append_basic_block(bb)
             for inst in bb.instructions:
-                if inst.opcode == "ret":
+                if inst.opcode == "param":
+                    if inst.annotation == "return_buffer":
+                        inst.opcode = "store"
+                        inst.operands = call_site.operands[1:2]
+                    elif inst.annotation == "return_pc":
+                        inst.opcode = "nop"
+                elif inst.opcode == "ret":
                     inst.opcode = "jmp"
                     inst.operands = [call_site_return.label]
-    
+                elif inst.opcode in ["jmp", "jnz", "djmp"]:
+                    for i, op in enumerate(inst.operands):
+                        if isinstance(op, IRLabel):
+                            inst.operands[i] = IRLabel(f"{prefix}{op.name}")
+                    
 
         call_site_bb.instructions = call_site_bb.instructions[:call_idx]
         call_site_bb.append_instruction("jmp", func_copy.entry.label)

@@ -71,7 +71,7 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
 
     _run_global_passes(ctx, ir_analyses, optimize)
 
-    # for fn in ctx.functions.values():
-    #     _run_passes(fn, ir_analyses[fn], optimize)
+    for fn in ctx.functions.values():
+        _run_passes(fn, ir_analyses[fn], optimize)
 
     return ctx

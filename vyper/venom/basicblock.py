@@ -514,8 +514,9 @@ class IRBasicBlock:
                 return inst.liveness
         return OrderedSet()
 
-    def copy(self):
-        bb = IRBasicBlock(self.label, self.parent)
+    def copy(self, prefix: str = "") -> "IRBasicBlock":
+        new_label = IRLabel(f"{prefix}{self.label.value}")
+        bb = IRBasicBlock(new_label, self.parent)
         bb.instructions = self.instructions.copy()
         bb.cfg_in = self.cfg_in.copy()
         bb.cfg_out = self.cfg_out.copy()

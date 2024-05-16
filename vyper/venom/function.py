@@ -20,8 +20,6 @@ class IRFunction:
     name: IRLabel  # symbol name
     ctx: "IRContext"  # type: ignore # noqa: F821
     args: list[IRParameter]
-    last_label: int
-    last_variable: int
     _basic_block_dict: dict[str, IRBasicBlock]
 
     # Used during code generation
@@ -34,12 +32,8 @@ class IRFunction:
         self.args = []
         self._basic_block_dict = {}
 
-        self.last_variable = 0
-
         self._ast_source_stack = []
         self._error_msg_stack = []
-
-        self.append_basic_block(IRBasicBlock(name, self))
 
     @property
     def entry(self) -> IRBasicBlock:
@@ -89,11 +83,10 @@ class IRFunction:
                 yield bb
 
     def get_next_variable(self) -> IRVariable:
-        self.last_variable += 1
-        return IRVariable(f"%{self.last_variable}")
+        return self.ctx.get_next_variable()
 
     def get_last_variable(self) -> str:
-        return f"%{self.last_variable}"
+        return self.ctx.get_last_variable()
 
     def remove_unreachable_blocks(self) -> int:
         self._compute_reachability()
@@ -220,11 +213,12 @@ class IRFunction:
                 else:
                     bb.append_instruction("exit")
 
-    def copy(self):
-        new = IRFunction(self.name)
-        new._basic_block_dict = self._basic_block_dict.copy()
-        new.last_label = self.last_label
-        new.last_variable = self.last_variable
+    def copy(self, prefix: str = ""):
+        new_label = IRLabel(f"{prefix}{self.name.value}")
+        new = IRFunction(new_label)
+        for bb in self.get_basic_blocks():
+            new_bb = bb.copy(prefix)
+            new.append_basic_block(new_bb)
         return new
 
     def as_graph(self, only_subgraph=False) -> str:

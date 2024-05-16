@@ -1,6 +1,6 @@
 from typing import Iterator, Optional
 
-from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel, IROperand
+from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel, IROperand, IRVariable
 from vyper.venom.function import IRFunction
 
 
@@ -10,6 +10,7 @@ class IRContext:
     immutables_len: Optional[int]
     data_segment: list[IRInstruction]
     last_label: int
+    last_variable: int
 
     def __init__(self) -> None:
         self.functions = {}
@@ -17,6 +18,7 @@ class IRContext:
         self.immutables_len = None
         self.data_segment = []
         self.last_label = 0
+        self.last_variable = 0
 
     def get_basic_blocks(self) -> Iterator[IRBasicBlock]:
         for fn in self.functions.values():
@@ -27,11 +29,15 @@ class IRContext:
         fn.ctx = self
         self.functions[fn.name] = fn
 
+    def remove_function(self, fn: IRFunction) -> None:
+        del self.functions[fn.name]
+
     def create_function(self, name: str) -> IRFunction:
         label = IRLabel(name, True)
         if label in self.functions:
             return self.functions[label]
         fn = IRFunction(label, self)
+        fn.append_basic_block(IRBasicBlock(label, fn))
         self.add_function(fn)
         return fn
 
@@ -45,6 +51,14 @@ class IRContext:
             suffix = f"_{suffix}"
         self.last_label += 1
         return IRLabel(f"{self.last_label}{suffix}")
+    
+    def get_next_variable(self) -> IRVariable:
+        self.last_variable += 1
+        return IRVariable(f"%{self.last_variable}")
+
+    def get_last_variable(self) -> str:
+        return f"%{self.last_variable}"
+
 
     def chain_basic_blocks(self) -> None:
         """

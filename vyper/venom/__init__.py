@@ -38,11 +38,9 @@ def generate_assembly_experimental(
     return compiler.generate_evm(optimize == OptimizationLevel.NONE)
 
 
-def _run_passes(fn: IRFunction, optimize: OptimizationLevel) -> None:
+def _run_passes(fn: IRFunction, ac: IRAnalysesCache, optimize: OptimizationLevel) -> None:
     # Run passes on Venom IR
     # TODO: Add support for optimization levels
-
-    ac = IRAnalysesCache(fn)
 
     SimplifyCFGPass(ac, fn).run_pass()
     MakeSSA(ac, fn).run_pass()
@@ -50,19 +48,30 @@ def _run_passes(fn: IRFunction, optimize: OptimizationLevel) -> None:
     Mem2Var(ac, fn).run_pass()
     MakeSSA(ac, fn).run_pass()
     SCCP(ac, fn).run_pass()
-
-    FuncInlinerPass(ac, fn).run_pass()
-
     StoreElimination(ac, fn).run_pass()
     SimplifyCFGPass(ac, fn).run_pass()
     RemoveUnusedVariablesPass(ac, fn).run_pass()
     DFTPass(ac, fn).run_pass()
 
+def _run_global_passes(ctx: IRContext, ir_analyses: dict, optimize: OptimizationLevel) -> None:
+    for fn in ctx.functions.values():
+        FuncInlinerPass(ir_analyses[fn], fn).run_pass()
+
 
 def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     # Convert "old" IR to "new" IR
     ctx = ir_node_to_venom(ir)
+
+    ir_analyses = {}
     for fn in ctx.functions.values():
-        _run_passes(fn, optimize)
+        ir_analyses[fn] = IRAnalysesCache(fn)
+
+    for fn in ctx.functions.values():
+        _run_passes(fn, ir_analyses[fn], optimize)
+
+    _run_global_passes(ctx, ir_analyses, optimize)
+
+    # for fn in ctx.functions.values():
+    #     _run_passes(fn, ir_analyses[fn], optimize)
 
     return ctx

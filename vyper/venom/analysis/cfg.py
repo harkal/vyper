@@ -1,3 +1,4 @@
+from vyper.venom.analysis.dfg import DFGAnalysis
 from vyper.utils import OrderedSet
 from vyper.venom.analysis.analysis import IRAnalysis
 from vyper.venom.basicblock import BB_TERMINATORS, CFG_ALTERING_INSTRUCTIONS
@@ -38,4 +39,5 @@ class CFGAnalysis(IRAnalysis):
         from vyper.venom.analysis.liveness import LivenessAnalysis
 
         self.analyses_cache.invalidate_analysis(DominatorTreeAnalysis)
+        self.analyses_cache.invalidate_analysis(DFGAnalysis)
         self.analyses_cache.invalidate_analysis(LivenessAnalysis)

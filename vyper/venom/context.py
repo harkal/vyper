@@ -45,6 +45,9 @@ class IRContext:
         if name in self.functions:
             return self.functions[name]
         raise Exception(f"Function {name} not found in context")
+    
+    def get_functions(self) -> Iterator[IRFunction]:
+        return iter(self.functions.values())
 
     def get_next_label(self, suffix: str = "") -> IRLabel:
         if suffix != "":

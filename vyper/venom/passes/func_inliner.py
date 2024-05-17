@@ -1,5 +1,6 @@
 
 
+from vyper.venom.analysis.fcg import FCGAnalysis
 from vyper.venom.analysis.cfg import CFGAnalysis
 from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel
 from vyper.venom.context import IRContext
@@ -17,6 +18,8 @@ class FuncInlinerPass(IRPass):
         self.inline_count = 0
         self.ctx = self.function.ctx
         func_call_sites = {fn: [] for fn in self.ctx.functions}
+
+        self.analyses_cache.request_analysis(FCGAnalysis)
         
         for bb in self.ctx.get_basic_blocks():
             for inst in bb.instructions:
@@ -26,6 +29,8 @@ class FuncInlinerPass(IRPass):
 
         funcs = self._filter_candidates(func_call_sites)
         for func in funcs:
+        # if len(funcs) > 0:
+        #     func = funcs[0]
             self._inline_function(self.ctx.get_function(func), func_call_sites[func])
 
         if len(funcs) > 0:

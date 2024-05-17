@@ -531,6 +531,8 @@ class IRBasicBlock:
         new_label = IRLabel(f"{prefix}{self.label.value}")
         bb = IRBasicBlock(new_label, self.parent)
         bb.instructions = [inst.copy() for inst in self.instructions]
+        for inst in bb.instructions:
+            inst.parent = bb
         bb.cfg_in = self.cfg_in.copy()
         bb.cfg_out = self.cfg_out.copy()
         bb.out_vars = self.out_vars.copy()

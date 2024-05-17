@@ -18,31 +18,15 @@ class FuncInlinerPass(IRPass):
     def run_pass(self):
         self.inline_count = 0
         self.ctx = self.function.ctx
-        func_call_sites = {fn: [] for fn in self.ctx.functions}
-
         self.fcg = self.analyses_cache.request_analysis(FCGAnalysis)
         
-        # for bb in self.ctx.get_basic_blocks():
-        #     for inst in bb.instructions:
-        #         if inst.opcode == "invoke":
-        #             func_name = inst.operands[0]
-        #             func_call_sites[func_name].append(inst)
-
-        # funcs = self._filter_candidates(func_call_sites)
-        # for func in funcs:
-        # # if len(funcs) > 0:
-        # #     func = funcs[0]
-        #     self._inline_function(self.ctx.get_function(func), func_call_sites[func])
-
         walk = self._build_call_walk()
         for func in walk:
             calls = self.fcg.get_calls(func)
             if len(calls) == 1:
                 self._inline_function(func, calls)
+                break
 
-            
-
-        #if len(funcs) > 0:
         self.analyses_cache.invalidate_analysis(CFGAnalysis)
 
     def _build_call_walk(self):
@@ -111,7 +95,7 @@ class FuncInlinerPass(IRPass):
                 elif inst.opcode == "ret":
                     inst.opcode = "jmp"
                     inst.operands = [call_site_return.label]
-                elif inst.opcode in ["jmp", "jnz", "djmp"]:
+                elif inst.opcode in ["jmp", "jnz", "djmp", "phi"]:
                     for i, op in enumerate(inst.operands):
                         if isinstance(op, IRLabel):
                             inst.operands[i] = IRLabel(f"{prefix}{op.name}")

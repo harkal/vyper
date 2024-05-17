@@ -13,29 +13,60 @@ class FuncInlinerPass(IRPass):
     """
     ctx: IRContext
     inline_count: int
+    fcg: FCGAnalysis
 
     def run_pass(self):
         self.inline_count = 0
         self.ctx = self.function.ctx
         func_call_sites = {fn: [] for fn in self.ctx.functions}
 
-        self.analyses_cache.request_analysis(FCGAnalysis)
+        self.fcg = self.analyses_cache.request_analysis(FCGAnalysis)
         
-        for bb in self.ctx.get_basic_blocks():
-            for inst in bb.instructions:
-                if inst.opcode == "invoke":
-                    func_name = inst.operands[0]
-                    func_call_sites[func_name].append(inst)
+        # for bb in self.ctx.get_basic_blocks():
+        #     for inst in bb.instructions:
+        #         if inst.opcode == "invoke":
+        #             func_name = inst.operands[0]
+        #             func_call_sites[func_name].append(inst)
 
-        funcs = self._filter_candidates(func_call_sites)
-        for func in funcs:
-        # if len(funcs) > 0:
-        #     func = funcs[0]
-            self._inline_function(self.ctx.get_function(func), func_call_sites[func])
+        # funcs = self._filter_candidates(func_call_sites)
+        # for func in funcs:
+        # # if len(funcs) > 0:
+        # #     func = funcs[0]
+        #     self._inline_function(self.ctx.get_function(func), func_call_sites[func])
 
-        if len(funcs) > 0:
-            self.analyses_cache.invalidate_analysis(CFGAnalysis)
-        
+        walk = self._build_call_walk()
+        for func in walk:
+            calls = self.fcg.get_calls(func)
+            if len(calls) == 1:
+                self._inline_function(func, calls)
+
+            
+
+        #if len(funcs) > 0:
+        self.analyses_cache.invalidate_analysis(CFGAnalysis)
+
+    def _build_call_walk(self):
+        """
+        DFS walk over the call graph.
+        """
+        visited = set()
+        call_walk = []
+
+        def dfs(fn):
+            if fn in visited:
+                return
+            visited.add(fn)
+            
+            callees = self.fcg.get_callees(fn)
+            for callee in callees:
+                dfs(callee)
+
+            call_walk.append(fn)
+
+        dfs(self.function)
+
+        return call_walk
+    
     def _filter_candidates(self, func_call_counts):
         """
         Filter candidates for inlining. This will become more sophisticated in the future.

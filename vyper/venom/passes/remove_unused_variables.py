@@ -1,3 +1,4 @@
+from vyper.venom.analysis.cfg import CFGAnalysis
 from vyper.venom.analysis.dfg import DFGAnalysis
 from vyper.venom.analysis.liveness import LivenessAnalysis
 from vyper.venom.passes.base_pass import IRPass
@@ -6,7 +7,7 @@ from vyper.venom.passes.base_pass import IRPass
 class RemoveUnusedVariablesPass(IRPass):
     def run_pass(self):
         removeList = set()
-
+        
         self.analyses_cache.request_analysis(LivenessAnalysis)
 
         for bb in self.function.get_basic_blocks():

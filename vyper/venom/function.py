@@ -21,6 +21,8 @@ class IRFunction:
     ctx: "IRContext"  # type: ignore # noqa: F821
     args: list[IRParameter]
     _basic_block_dict: dict[str, IRBasicBlock]
+    last_label: int
+    last_variable: int
 
     # Used during code generation
     _ast_source_stack: list[IRnode]
@@ -31,6 +33,8 @@ class IRFunction:
         self.name = name
         self.args = []
         self._basic_block_dict = {}
+        self.last_label = 0
+        self.last_variable = 0
 
         self._ast_source_stack = []
         self._error_msg_stack = []
@@ -83,10 +87,11 @@ class IRFunction:
                 yield bb
 
     def get_next_variable(self) -> IRVariable:
-        return self.ctx.get_next_variable()
+        self.last_variable += 1
+        return IRVariable(f"%{self.last_variable}")
 
     def get_last_variable(self) -> str:
-        return self.ctx.get_last_variable()
+        return f"%{self.last_variable}"
 
     def remove_unreachable_blocks(self) -> int:
         self._compute_reachability()

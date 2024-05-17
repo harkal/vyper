@@ -57,8 +57,9 @@ def _run_global_passes(ctx: IRContext, ir_analyses: dict, optimize: Optimization
     for fn in ctx.functions.values():
         FuncInlinerPass(ir_analyses[fn], fn).run_pass()
 
-
+count = 0
 def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
+    global count
     # Convert "old" IR to "new" IR
     ctx = ir_node_to_venom(ir)
 
@@ -66,11 +67,28 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     for fn in ctx.functions.values():
         ir_analyses[fn] = IRAnalysesCache(fn)
 
+    _run_global_passes(ctx, ir_analyses, optimize)
+
     for fn in ctx.functions.values():
         _run_passes(fn, ir_analyses[fn], optimize)
 
-    # DISABLED FOR NOW
-    # _run_global_passes(ctx, ir_analyses, optimize)
+    if count == 1:
+        print(ctx.as_graph())
+        import sys
+        sys.exit()
+    count += 1
+
+    # print(ctx)
+
+    # for fn in ctx.functions.values():
+    #     print("DO FUNCTION: ", fn.name, len(ctx.functions))
+    #     ac = ir_analyses[fn]
+    #     SimplifyCFGPass(ac, fn).run_pass()
+        #StoreElimination(ac, fn).run_pass()
+    #     # SCCP(ac, fn).run_pass()
+
+    # print("-------------------")
+    # print(ctx)
 
     for fn in ctx.functions.values():
         _run_passes(fn, ir_analyses[fn], optimize)

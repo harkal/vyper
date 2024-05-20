@@ -305,7 +305,15 @@ class IRInstruction:
         return self.parent.parent.ast_source
     
     def copy(self) -> "IRInstruction":
-        ops = [deepcopy(op) for op in self.operands]
+        ops = []
+        for op in self.operands:
+            if isinstance(op, IRLabel):
+                ops.append(IRLabel(op.value))
+            elif isinstance(op, IRVariable):
+                ops.append(IRVariable(op.value, op.version + 1))
+            else:
+                ops.append(IRLiteral(op.value))
+
         inst = IRInstruction(self.opcode, ops, deepcopy(self.output))
         inst.parent = self.parent
         inst.liveness = self.liveness.copy()

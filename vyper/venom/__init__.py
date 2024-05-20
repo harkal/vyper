@@ -67,25 +67,16 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     for fn in ctx.functions.values():
         ir_analyses[fn] = IRAnalysesCache(fn)
 
-    _run_global_passes(ctx, ir_analyses, optimize)
+    #_run_global_passes(ctx, ir_analyses, optimize)
 
     for fn in ctx.functions.values():
-        ac = ir_analyses[fn]
-        SimplifyCFGPass(ir_analyses[fn], fn).run_pass()
-        MakeSSA(ir_analyses[fn], fn).run_pass()
-        StoreElimination(ac, fn).run_pass()
-        # Mem2Var(ac, fn).run_pass()
-        # MakeSSA(ir_analyses[fn], fn).run_pass()
-        # SCCP(ac, fn).run_pass()
-        # StoreElimination(ac, fn).run_pass()
-        # RemoveUnusedVariablesPass(ac, fn).run_pass()
-    #    _run_passes(fn, ir_analyses[fn], optimize)
+        _run_passes(fn, ir_analyses[fn], optimize)
 
-    if count == 1:
-        print(ctx.as_graph())
-        import sys
-        sys.exit()
-    count += 1
+    # if count == 1:
+    #     print(ctx.as_graph())
+    #     import sys
+    #     sys.exit()
+    # count += 1
 
     # print(ctx)
 

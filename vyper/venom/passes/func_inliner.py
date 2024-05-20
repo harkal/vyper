@@ -24,6 +24,7 @@ class FuncInlinerPass(IRPass):
         for func in walk:
             calls = self.fcg.get_calls(func)
             if len(calls) == 1:
+                #print("Inlining function", func.name)
                 self._inline_function(func, calls)
                 break
 
@@ -88,8 +89,8 @@ class FuncInlinerPass(IRPass):
             for inst in bb.instructions:
                 if inst.opcode == "param":
                     if inst.annotation == "return_buffer":
-                        inst.opcode = "store"
-                        inst.operands = call_site.operands[1:2]
+                        inst.opcode = "nop"
+                        inst.output = None
                     elif inst.annotation == "return_pc":
                         inst.opcode = "nop"
                         inst.output = None

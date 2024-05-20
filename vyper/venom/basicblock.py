@@ -542,9 +542,9 @@ class IRBasicBlock:
         bb.instructions = [inst.copy() for inst in self.instructions]
         for inst in bb.instructions:
             inst.parent = bb
-        bb.cfg_in = self.cfg_in.copy()
-        bb.cfg_out = self.cfg_out.copy()
-        bb.out_vars = self.out_vars.copy()
+        bb.cfg_in = OrderedSet()
+        bb.cfg_out = OrderedSet()
+        bb.out_vars = OrderedSet()
         return bb
 
     def __repr__(self) -> str:

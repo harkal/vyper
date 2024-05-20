@@ -54,8 +54,8 @@ def _run_passes(fn: IRFunction, ac: IRAnalysesCache, optimize: OptimizationLevel
     DFTPass(ac, fn).run_pass()
 
 def _run_global_passes(ctx: IRContext, ir_analyses: dict, optimize: OptimizationLevel) -> None:
-    for fn in ctx.functions.values():
-        FuncInlinerPass(ir_analyses[fn], fn).run_pass()
+    fn = next(ctx.get_functions())
+    FuncInlinerPass(ir_analyses[fn], fn).run_pass()
 
 count = 0
 def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
@@ -72,11 +72,11 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     for fn in ctx.functions.values():
         _run_passes(fn, ir_analyses[fn], optimize)
 
-    if count == 1:
-        print(ctx.as_graph())
-        import sys
-        sys.exit()
-    count += 1
+    # if count == 1:
+    #     print(ctx.as_graph())
+    #     import sys
+    #     sys.exit()
+    # count += 1
 
     # print(ctx)
 

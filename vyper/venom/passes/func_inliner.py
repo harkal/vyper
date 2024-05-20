@@ -92,6 +92,7 @@ class FuncInlinerPass(IRPass):
                         inst.operands = call_site.operands[1:2]
                     elif inst.annotation == "return_pc":
                         inst.opcode = "nop"
+                        inst.output = None
                 elif inst.opcode == "ret":
                     inst.opcode = "jmp"
                     inst.operands = [call_site_return.label]

@@ -2,7 +2,7 @@
 
 from vyper.venom.analysis.fcg import FCGAnalysis
 from vyper.venom.analysis.cfg import CFGAnalysis
-from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel
+from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel, IRVariable
 from vyper.venom.context import IRContext
 from vyper.venom.passes.base_pass import IRPass
 
@@ -81,6 +81,7 @@ class FuncInlinerPass(IRPass):
             call_site_return.insert_instruction(inst)
         call_site_func.append_basic_block(call_site_return)
 
+
         func_copy = func.copy(prefix)
 
         for bb in func_copy.get_basic_blocks():
@@ -89,11 +90,15 @@ class FuncInlinerPass(IRPass):
             for inst in bb.instructions:
                 if inst.opcode == "param":
                     if inst.annotation == "return_buffer":
-                        inst.opcode = "nop"
-                        inst.output = None
+                        inst.opcode = "store"
+                        inst.operands = [call_site.operands[1]]
+                        inst.output = IRVariable(inst.output.name, inst.output.version + 1)
                     elif inst.annotation == "return_pc":
                         inst.opcode = "nop"
                         inst.output = None
+                elif inst.opcode == "store":
+                    if "ret_ofst" in inst.output.name or "ret_size" in inst.output.name:
+                        bb.remove_instruction(inst)
                 elif inst.opcode == "ret":
                     inst.opcode = "jmp"
                     inst.operands = [call_site_return.label]

@@ -304,17 +304,21 @@ class IRInstruction:
                 return inst.ast_source
         return self.parent.parent.ast_source
     
-    def copy(self) -> "IRInstruction":
+    def copy(self, prefix: str = "") -> "IRInstruction":
         ops = []
         for op in self.operands:
             if isinstance(op, IRLabel):
                 ops.append(IRLabel(op.value))
             elif isinstance(op, IRVariable):
-                ops.append(IRVariable(op.value, op.version + 1))
+                ops.append(IRVariable(f"{prefix}{op.value}"))
             else:
                 ops.append(IRLiteral(op.value))
 
-        inst = IRInstruction(self.opcode, ops, deepcopy(self.output))
+        output = None
+        if self.output:
+            output = IRVariable(f"{prefix}{self.output.value}")
+
+        inst = IRInstruction(self.opcode, ops, output)
         inst.parent = self.parent
         inst.liveness = self.liveness.copy()
         inst.dup_requirements = self.dup_requirements.copy()
@@ -539,7 +543,7 @@ class IRBasicBlock:
     def copy(self, prefix: str = "") -> "IRBasicBlock":
         new_label = IRLabel(f"{prefix}{self.label.value}")
         bb = IRBasicBlock(new_label, self.parent)
-        bb.instructions = [inst.copy() for inst in self.instructions]
+        bb.instructions = [inst.copy(prefix) for inst in self.instructions]
         for inst in bb.instructions:
             inst.parent = bb
         bb.cfg_in = OrderedSet()

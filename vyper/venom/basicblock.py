@@ -5,7 +5,7 @@ from vyper.codegen.ir_node import IRnode
 from vyper.utils import OrderedSet
 
 # instructions which can terminate a basic block
-BB_TERMINATORS = frozenset(["jmp", "djmp", "jnz", "ret", "return", "stop", "exit"])
+BB_TERMINATORS = frozenset(["jmp", "djmp", "jnz", "ret", "return", "stop", "revert", "exit"])
 
 VOLATILE_INSTRUCTIONS = frozenset(
     [
@@ -310,13 +310,13 @@ class IRInstruction:
             if isinstance(op, IRLabel):
                 ops.append(IRLabel(op.value))
             elif isinstance(op, IRVariable):
-                ops.append(IRVariable(f"{prefix}{op.value}"))
+                ops.append(IRVariable(f"{prefix}{op.name}"))
             else:
                 ops.append(IRLiteral(op.value))
 
         output = None
         if self.output:
-            output = IRVariable(f"{prefix}{self.output.value}")
+            output = IRVariable(f"{prefix}{self.output.name}")
 
         inst = IRInstruction(self.opcode, ops, output)
         inst.parent = self.parent

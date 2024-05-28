@@ -1,4 +1,5 @@
 from vyper.venom.analysis.dfg import DFGAnalysis
+from vyper.venom.analysis.liveness import LivenessAnalysis
 from vyper.venom.passes.base_pass import IRPass
 
 
@@ -28,3 +29,5 @@ class BranchOptimizationPass(IRPass):
         self.dfg = self.analyses_cache.request_analysis(DFGAnalysis)
 
         self._optimize_branches()
+
+        self.analyses_cache.invalidate_analysis(LivenessAnalysis)

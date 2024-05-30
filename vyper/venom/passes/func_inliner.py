@@ -6,6 +6,7 @@ from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel, IRVaria
 from vyper.venom.context import IRContext
 from vyper.venom.passes.base_pass import IRPass
 
+import sys
 
 class FuncInlinerPass(IRPass):
     """
@@ -24,7 +25,7 @@ class FuncInlinerPass(IRPass):
         for func in walk:
             calls = self.fcg.get_calls(func)
             if len(calls) == 1:
-                #print("Inlining function", func.name)
+                #sys.stderr.write("**** Inlining function " + str(func.name))
                 self._inline_function(func, calls)
                 break
 

@@ -92,6 +92,7 @@ if TYPE_CHECKING:
 
 ir_printer = ContextVar("ir_printer", default=None)
 
+
 class IRDebugInfo:
     """
     IRDebugInfo represents debug information in IR, used to annotate IR
@@ -209,7 +210,7 @@ class IRInstruction:
     annotation: Optional[str]
     ast_source: Optional[IRnode]
     error_msg: Optional[str]
-    
+
     def __init__(
         self,
         opcode: str,
@@ -225,7 +226,7 @@ class IRInstruction:
         self.annotation = None
         self.ast_source = None
         self.error_msg = None
-    
+
     @property
     def is_volatile(self) -> bool:
         return self.opcode in VOLATILE_INSTRUCTIONS
@@ -371,9 +372,7 @@ class IRInstruction:
         operands = self.operands
         if opcode not in ["jmp", "jnz", "invoke"]:
             operands = list(reversed(operands))
-        s += ", ".join(
-            [(f"@{op}" if isinstance(op, IRLabel) else str(op)) for op in operands]
-        )
+        s += ", ".join([(f"@{op}" if isinstance(op, IRLabel) else str(op)) for op in operands])
         return s
 
     def __repr__(self) -> str:
@@ -385,9 +384,7 @@ class IRInstruction:
         operands = self.operands
         if opcode not in ["jmp", "jnz", "invoke"]:
             operands = reversed(operands)  # type: ignore
-        s += ", ".join(
-            [(f"@{op}" if isinstance(op, IRLabel) else str(op)) for op in operands]
-        )
+        s += ", ".join([(f"@{op}" if isinstance(op, IRLabel) else str(op)) for op in operands])
 
         if self.annotation:
             s += f" <{self.annotation}>"
@@ -652,17 +649,18 @@ class IRBasicBlock:
             f"{repr(self.label)}:  IN={[bb.label for bb in self.cfg_in]}"
             f" OUT={[bb.label for bb in self.cfg_out]} => {self.out_vars}\n"
         )
-        if printer and hasattr(printer, '_pre_block'):
+        if printer and hasattr(printer, "_pre_block"):
             s += printer._pre_block(self)
         for inst in self.instructions:
-            if printer and hasattr(printer, '_pre_instruction'):
+            if printer and hasattr(printer, "_pre_instruction"):
                 s += printer._pre_instruction(inst)
             s += f"    {str(inst).strip()}"
-            if printer and hasattr(printer, '_post_instruction'):
+            if printer and hasattr(printer, "_post_instruction"):
                 s += printer._post_instruction(inst)
             s += "\n"
         return s
-    
+
+
 class IRPrinter:
     def _pre_instruction(self, inst: IRInstruction) -> str:
         return ""

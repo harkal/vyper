@@ -4,10 +4,10 @@ from .dft import DFTPass
 from .float_allocas import FloatAllocas
 from .make_ssa import MakeSSA
 from .mem2var import Mem2Var
+from .mem_ssa import MemSSA
 from .normalization import NormalizationPass
 from .remove_unused_variables import RemoveUnusedVariablesPass
 from .sccp import SCCP
 from .simplify_cfg import SimplifyCFGPass
 from .store_elimination import StoreElimination
 from .store_expansion import StoreExpansionPass
-from .mem_ssa import MemSSA

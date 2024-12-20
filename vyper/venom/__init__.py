@@ -18,6 +18,7 @@ from vyper.venom.passes import (
     MakeSSA,
     Mem2Var,
     MemSSA,
+    MemMergePass,
     RemoveUnusedVariablesPass,
     SimplifyCFGPass,
     StoreElimination,
@@ -57,6 +58,7 @@ def _run_passes(fn: IRFunction, optimize: OptimizationLevel) -> None:
     MakeSSA(ac, fn).run_pass()
     SCCP(ac, fn).run_pass()
     StoreElimination(ac, fn).run_pass()
+    MemMergePass(ac, fn).run_pass()
     SimplifyCFGPass(ac, fn).run_pass()
     AlgebraicOptimizationPass(ac, fn).run_pass()
     # NOTE: MakeSSA is after algebraic optimization it currently produces

@@ -29,6 +29,7 @@ from vyper.codegen.core import (
     get_type_for_exact_size,
     ir_tuple_from_args,
     make_setter,
+    potential_overlap,
     promote_signed_int,
     sar,
     shl,
@@ -304,7 +305,7 @@ class Slice(BuiltinFunctionT):
 
         arg = node.args[0]
         start_expr = node.args[1]
-        length_expr = node.args[2]
+        length_expr = node.args[2].reduced()
 
         # CMC 2022-03-22 NOTE slight code duplication with semantics/analysis/local
         is_adhoc_slice = arg.get("attr") == "code" or (
@@ -356,6 +357,9 @@ class Slice(BuiltinFunctionT):
             # copy_bytes works on pointers.
             assert is_bytes32, src
             src = ensure_in_memory(src, context)
+
+        if potential_overlap(src, start) or potential_overlap(src, length):
+            raise CompilerPanic("risky overlap")
 
         with src.cache_when_complex("src") as (b1, src), start.cache_when_complex("start") as (
             b2,
@@ -862,6 +866,9 @@ class Extract32(BuiltinFunctionT):
         bytez, index = args
         ret_type = kwargs["output_type"]
 
+        if potential_overlap(bytez, index):
+            raise CompilerPanic("risky overlap")
+
         def finalize(ret):
             annotation = "extract32"
             ret = IRnode.from_list(ret, typ=ret_type, annotation=annotation)
@@ -1250,7 +1257,8 @@ class RawLog(BuiltinFunctionT):
     def infer_arg_types(self, node, expected_return_typ=None):
         self._validate_arg_types(node)
 
-        if not isinstance(node.args[0], vy_ast.List) or len(node.args[0].elements) > 4:
+        arg = node.args[0].reduced()
+        if not isinstance(arg, vy_ast.List) or len(arg.elements) > 4:
             raise InvalidType("Expecting a list of 0-4 topics as first argument", node.args[0])
 
         # return a concrete type for `data`
@@ -1260,7 +1268,9 @@ class RawLog(BuiltinFunctionT):
 
     @process_inputs
     def build_IR(self, expr, args, kwargs, context):
-        topics_length = len(expr.args[0].elements)
+        context.check_is_not_constant(f"use {self._id}", expr)
+
+        topics_length = len(expr.args[0].reduced().elements)
         topics = args[0].args
         topics = [unwrap_location(topic) for topic in topics]
 
@@ -2157,10 +2167,9 @@ else:
                 variables_2=variables_2,
                 memory_allocator=context.memory_allocator,
             )
+            z_ir = new_ctx.vars["z"].as_ir_node()
             ret = IRnode.from_list(
-                ["seq", placeholder_copy, sqrt_ir, new_ctx.vars["z"].pos],  # load x variable
-                typ=DecimalT(),
-                location=MEMORY,
+                ["seq", placeholder_copy, sqrt_ir, z_ir], typ=DecimalT(), location=MEMORY
             )
             return b1.resolve(ret)
 
@@ -2331,7 +2340,7 @@ class Print(BuiltinFunctionT):
 
 
 class ABIEncode(BuiltinFunctionT):
-    _id = "_abi_encode"  # TODO prettier to rename this to abi.encode
+    _id = "abi_encode"
     # signature: *, ensure_tuple=<literal_bool> -> Bytes[<calculated len>]
     # explanation of ensure_tuple:
     # default is to force even a single value into a tuple,
@@ -2354,7 +2363,13 @@ class ABIEncode(BuiltinFunctionT):
         for kwarg in node.keywords:
             kwarg_name = kwarg.arg
             validate_expected_type(kwarg.value, self._kwargs[kwarg_name].typ)
-            ret[kwarg_name] = get_exact_type_from_node(kwarg.value)
+
+            typ = get_exact_type_from_node(kwarg.value)
+            if kwarg_name == "method_id" and isinstance(typ, BytesT):
+                if typ.length != 4:
+                    raise InvalidLiteral("method_id must be exactly 4 bytes!", kwarg.value)
+
+            ret[kwarg_name] = typ
         return ret
 
     def fetch_call_return(self, node):
@@ -2452,7 +2467,7 @@ class ABIEncode(BuiltinFunctionT):
 
 
 class ABIDecode(BuiltinFunctionT):
-    _id = "_abi_decode"
+    _id = "abi_decode"
     _inputs = [("data", BytesT.any()), ("output_type", TYPE_T.any())]
     _kwargs = {"unwrap_tuple": KwargSettings(BoolT(), True, require_literal=True)}
 
@@ -2482,7 +2497,7 @@ class ABIDecode(BuiltinFunctionT):
             wrapped_typ = calculate_type_for_external_return(output_typ)
 
         abi_size_bound = wrapped_typ.abi_type.size_bound()
-        abi_min_size = wrapped_typ.abi_type.min_size()
+        abi_min_size = wrapped_typ.abi_type.static_size()
 
         # Get the size of data
         input_max_len = data.typ.maxlen
@@ -2506,6 +2521,10 @@ class ABIDecode(BuiltinFunctionT):
 
             ret = ["seq"]
 
+            # NOTE: we could replace these 4 lines with
+            # `[assert [le, abi_min_size, data_len]]`. it depends on
+            # what we consider a "valid" payload.
+            # cf. test_abi_decode_max_size()
             if abi_min_size == abi_size_bound:
                 ret.append(["assert", ["eq", abi_min_size, data_len]])
             else:
@@ -2539,6 +2558,28 @@ class ABIDecode(BuiltinFunctionT):
             # (note: unwraps the tuple type if necessary)
             ret = IRnode.from_list(ret, typ=output_typ, location=MEMORY)
             return b1.resolve(ret)
+
+
+class OldABIEncode(ABIEncode):
+    _warned = False
+    _id = "_abi_encode"
+
+    def _try_fold(self, node):
+        if not self.__class__._warned:
+            vyper_warn(f"`{self._id}()` is deprecated! Please use `{super()._id}()` instead.", node)
+            self.__class__._warned = True
+        super()._try_fold(node)
+
+
+class OldABIDecode(ABIDecode):
+    _warned = False
+    _id = "_abi_decode"
+
+    def _try_fold(self, node):
+        if not self.__class__._warned:
+            vyper_warn(f"`{self._id}()` is deprecated! Please use `{super()._id}()` instead.", node)
+            self.__class__._warned = True
+        super()._try_fold(node)
 
 
 class _MinMaxValue(TypenameFoldedFunctionT):
@@ -2593,8 +2634,10 @@ class Epsilon(TypenameFoldedFunctionT):
 
 
 DISPATCH_TABLE = {
-    "_abi_encode": ABIEncode(),
-    "_abi_decode": ABIDecode(),
+    "abi_encode": ABIEncode(),
+    "abi_decode": ABIDecode(),
+    "_abi_encode": OldABIEncode(),
+    "_abi_decode": OldABIDecode(),
     "floor": Floor(),
     "ceil": Ceil(),
     "convert": Convert(),

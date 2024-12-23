@@ -62,6 +62,21 @@ The ``_times_two()`` helper function in the above module can be immediately used
 
 The other functions cannot be used yet, because they touch the ``ownable`` module's state. There are two ways to declare a module so that its state can be used.
 
+Using a module as an interface
+==============================
+
+A module can be used as an interface with the ``__at__`` syntax.
+
+.. code-block:: vyper
+
+    import ownable
+
+    an_ownable: ownable.__interface__
+
+    def call_ownable(addr: address):
+        self.an_ownable = ownable.__at__(addr)
+        self.an_ownable.transfer_ownership(...)
+
 Initializing a module
 =====================
 
@@ -144,6 +159,8 @@ The design of the module system takes inspiration from (but is not directly rela
 * A module may be "used" many times
 * A module which is "used" or its state touched must be "initialized" exactly once
 
+To read more about the design background of Vyper's module system, please see its original `design document <https://github.com/vyperlang/vyper/issues/3722>`_.
+
 .. _init-dependencies:
 
 Initializing a module with dependencies
@@ -169,6 +186,9 @@ Sometimes, you may encounter a module which itself ``uses`` other modules. Vyper
     # export all external functions from ownable_2step
     exports: ownable_2step.__interface__
 
+.. warning::
+    In normal usage, you should make sure that ``__init__()`` functions are called in dependency order. In the above example, you can get unexpected behavior if ``ownable_2step.__init__()`` is called before ``ownable.__init__()``! The compiler may enforce this behavior in the future.
+
 .. _exporting-functions:
 
 Exporting functions
@@ -176,7 +196,9 @@ Exporting functions
 
 In Vyper, ``@external`` functions are not automatically exposed (i.e., included in the runtime code) in the importing contract. This is a safety feature, it means that any externally facing functionality must be explicitly defined in the top-level of the compilation target.
 
-So, exporting external functions from modules is accomplished using the ``exports`` keyword. In Vyper, functions can be exported individually, or, a wholesale export of all the functions in a module can be done. The following are all ways of exporting functions from an imported module.
+So, exporting external functions from modules is accomplished using the ``exports`` keyword. In Vyper, functions can be exported individually, or, a wholesale export of all the functions in an interface can be done. The special interface ``module.__interface__`` is a compiler-defined interface, which automatically includes all the functions in a module.
+
+The following are all ways of exporting functions from an imported module.
 
 .. code-block:: vyper
 
@@ -190,5 +212,11 @@ So, exporting external functions from modules is accomplished using the ``export
         ownable_2step.accept_ownership,
     )
 
+    # export all IERC20 functions from `base_token`
+    exports: base_token.IERC20
+
     # export all external functions from `ownable_2step`
     exports: ownable_2step.__interface__
+
+.. note::
+    Any exported interfaces must be implemented by the module. For example, in the above example, ``base_token`` must contain ``implements: IERC20``, or else the compiler will raise an error.

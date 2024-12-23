@@ -1,6 +1,5 @@
 from vyper.utils import OrderedSet
-from vyper.venom.analysis.dfg import DFGAnalysis
-from vyper.venom.analysis.liveness import LivenessAnalysis
+from vyper.venom.analysis import DFGAnalysis, LivenessAnalysis
 from vyper.venom.basicblock import IRInstruction
 from vyper.venom.passes.base_pass import IRPass
 
@@ -27,11 +26,12 @@ class RemoveUnusedVariablesPass(IRPass):
             self._process_instruction(inst)
 
         self.analyses_cache.invalidate_analysis(LivenessAnalysis)
+        self.analyses_cache.invalidate_analysis(DFGAnalysis)
 
     def _process_instruction(self, inst):
         if inst.output is None:
             return
-        if inst.volatile:
+        if inst.is_volatile or inst.is_bb_terminator:
             return
         uses = self.dfg.get_uses(inst.output)
         if len(uses) > 0:

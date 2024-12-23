@@ -1,6 +1,7 @@
+from vyper.venom.analysis.dfg import DFGAnalysis
 from vyper.venom.analysis.fcg import FCGAnalysis
 from vyper.venom.analysis.cfg import CFGAnalysis
-from vyper.venom.basicblock import IRBasicBlock, IRLabel, IRVariable
+from vyper.venom.basicblock import IRBasicBlock, IRVariable
 from vyper.venom.context import IRContext
 from vyper.venom.passes.base_pass import IRPass
 
@@ -30,6 +31,7 @@ class FuncInlinerPass(IRPass):
                 self.ctx.remove_function(func)
                 # break
 
+        self.analyses_cache.invalidate_analysis(DFGAnalysis)
         self.analyses_cache.invalidate_analysis(CFGAnalysis)
 
     def _build_call_walk(self):
@@ -105,10 +107,10 @@ class FuncInlinerPass(IRPass):
                 elif inst.opcode == "ret":
                     inst.opcode = "jmp"
                     inst.operands = [call_site_return.label]
-                elif inst.opcode in ["jmp", "jnz", "djmp", "phi"]:
-                    for i, op in enumerate(inst.operands):
-                        if isinstance(op, IRLabel):
-                            inst.operands[i] = IRLabel(f"{prefix}{op.name}")
+                # elif inst.opcode in ["jmp", "jnz", "djmp", "phi"]:
+                #     for i, op in enumerate(inst.operands):
+                #         if isinstance(op, IRLabel):
+                #             inst.operands[i] = IRLabel(f"{prefix}{op.name}")
 
         call_site_bb.instructions = call_site_bb.instructions[:call_idx]
         call_site_bb.append_instruction("jmp", func_copy.entry.label)

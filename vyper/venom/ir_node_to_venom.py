@@ -13,7 +13,7 @@ from vyper.venom.basicblock import (
     IRVariable,
 )
 from vyper.venom.context import IRContext
-from vyper.venom.function import IRFunction, IRParameter
+from vyper.venom.function import IRFunction
 
 # Instructions that are mapped to their inverse
 INVERSE_MAPPED_IR_INSTRUCTIONS = {"ne": "eq", "le": "gt", "sle": "sgt", "ge": "lt", "sge": "slt"}
@@ -165,7 +165,7 @@ def _handle_self_call(fn: IRFunction, ir: IRnode, symbols: SymbolTable) -> Optio
 
     fn_new = fn.ctx.create_function(target_label)
 
-    stack_args = []
+    stack_args: list[IROperand] = []
 
     if setup_ir != goto_ir:
         _convert_ir_bb(fn, setup_ir, symbols)
@@ -204,8 +204,8 @@ def _handle_internal_func(
     bb.instructions[-1].annotation = "return_pc"
 
     for arg in fn.args:
-        ret = bb.append_instruction("alloca", arg.offset, 32 )
-        bb.append_instruction("mstore", arg.func_var, ret)
+        ret = bb.append_instruction("alloca", arg.offset, 32)
+        bb.append_instruction("mstore", arg.func_var, ret)  # type: ignore
         arg.addr_var = ret
 
     _convert_ir_bb(fn, ir.args[0].args[2], symbols)
@@ -214,7 +214,7 @@ def _handle_internal_func(
         if inst.opcode == "store":
             param = fn.get_param_at_offset(inst.operands[0].value)
             if param is not None:
-                inst.operands[0] = param.addr_var
+                inst.operands[0] = param.addr_var  # type: ignore
 
     return fn
 

@@ -4,13 +4,14 @@ from typing import Iterator, Optional
 from vyper.codegen.ir_node import IRnode
 from vyper.venom.basicblock import IRBasicBlock, IRLabel, IRVariable
 
+
 class IRParameter:
-    
     offset: int
     size: int
     call_site_var: Optional[IRVariable]
     func_var: Optional[IRVariable]
     addr_var: Optional[IRVariable]
+
 
 class IRFunction:
     """

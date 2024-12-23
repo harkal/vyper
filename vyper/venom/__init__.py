@@ -86,14 +86,18 @@ def _run_passes(fn: IRFunction, ac: IRAnalysesCache, optimize: OptimizationLevel
 
     DFTPass(ac, fn).run_pass()
 
+
 def _run_global_passes(ctx: IRContext, ir_analyses: dict, optimize: OptimizationLevel) -> None:
     fn = next(ctx.get_functions())
     FuncInlinerPass(ir_analyses[fn], fn).run_pass()
 
+
 count = 0
-def run_passes_on(ctx: IRContext, optimize: OptimizationLevel):
+
+
+def run_passes_on(ctx: IRContext, ir_analyses: dict, optimize: OptimizationLevel):
     for fn in ctx.functions.values():
-        _run_passes(fn, optimize)
+        _run_passes(fn, ir_analyses[fn], optimize)
 
 
 def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
@@ -122,7 +126,7 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     #     print("DO FUNCTION: ", fn.name, len(ctx.functions))
     #     ac = ir_analyses[fn]
     #     SimplifyCFGPass(ac, fn).run_pass()
-        #StoreElimination(ac, fn).run_pass()
+    # StoreElimination(ac, fn).run_pass()
     #     # SCCP(ac, fn).run_pass()
 
     # print("-------------------")

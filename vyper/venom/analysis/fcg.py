@@ -1,8 +1,4 @@
-
-
-
-from typing import Iterator
-from vyper.venom.basicblock import IRInstruction
+from vyper.venom.basicblock import IRInstruction, IRLabel
 from vyper.utils import OrderedSet
 from vyper.venom.function import IRFunction
 from vyper.venom.context import IRContext
@@ -13,10 +9,10 @@ class FCGAnalysis(IRAnalysis):
     """
     Compute the function call graph for the context.
     """
+
     ctx: IRContext
     calls: dict[IRFunction, OrderedSet[IRInstruction]]
     callees: dict[IRFunction, OrderedSet[IRFunction]]
-    
 
     def __init__(self, analyses_cache: IRAnalysesCache, function: IRFunction):
         super().__init__(analyses_cache, function)
@@ -34,9 +30,9 @@ class FCGAnalysis(IRAnalysis):
         for fn in ctx.get_functions():
             self._analyze_function(fn)
 
-    def get_calls(self, fn: IRFunction) -> OrderedSet[IRFunction]:
+    def get_calls(self, fn: IRFunction) -> OrderedSet[IRInstruction]:
         return self.calls[fn]
-    
+
     def get_callees(self, fn: IRFunction) -> OrderedSet[IRFunction]:
         return self.callees[fn]
 
@@ -44,7 +40,9 @@ class FCGAnalysis(IRAnalysis):
         for bb in fn.get_basic_blocks():
             for inst in bb.instructions:
                 if inst.opcode == "invoke":
-                    callee = self.ctx.get_function(inst.operands[0])
+                    label = inst.operands[0]
+                    assert isinstance(label, IRLabel)  # mypy help
+                    callee = self.ctx.get_function(label)
                     self.callees[fn].add(callee)
                     self.calls[callee].add(inst)
 

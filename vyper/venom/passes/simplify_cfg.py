@@ -115,7 +115,7 @@ class SimplifyCFGPass(IRPass):
             count += 1
 
         return count
-    
+
     def _strip_unreachable_instructions(self) -> int:
         """
         Strip unreachable instructions from basic blocks.
@@ -133,10 +133,10 @@ class SimplifyCFGPass(IRPass):
                     count += 1
                 elif inst.opcode == "revert":
                     idx = bb.instructions.index(inst)
-                    if idx + 1 < len(bb.instructions) and bb.instructions[idx+1].opcode != "exit":
-                        bb.instructions = bb.instructions[:idx+1]
+                    if idx + 1 < len(bb.instructions) and bb.instructions[idx + 1].opcode != "exit":
+                        bb.instructions = bb.instructions[: idx + 1]
                         count += 1
-                
+
         return count
 
     def run_pass(self):

@@ -2,6 +2,7 @@
 import argparse
 import sys
 
+from analysis.analysis import IRAnalysesCache
 import vyper
 import vyper.evm.opcodes as evm
 from vyper.compiler.phases import generate_bytecode
@@ -55,7 +56,10 @@ def _parse_args(argv: list[str]):
             venom_source = f.read()
 
     ctx = parse_venom(venom_source)
-    run_passes_on(ctx, OptimizationLevel.default())
+    ir_analyses = {}
+    for fn in ctx.functions.values():
+        ir_analyses[fn] = IRAnalysesCache(fn)
+    run_passes_on(ctx, ir_analyses, OptimizationLevel.default())
     asm = generate_assembly_experimental(ctx)
     bytecode = generate_bytecode(asm, compiler_metadata=None)
     print(f"0x{bytecode.hex()}")

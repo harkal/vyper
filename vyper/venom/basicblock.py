@@ -376,9 +376,9 @@ class IRInstruction:
             if inst.ast_source:
                 return inst.ast_source
         return self.parent.parent.ast_source
-    
+
     def copy(self, prefix: str = "") -> "IRInstruction":
-        ops = []
+        ops: list[IROperand] = []
         for op in self.operands:
             if isinstance(op, IRLabel):
                 ops.append(IRLabel(op.value))
@@ -394,8 +394,6 @@ class IRInstruction:
         inst = IRInstruction(self.opcode, ops, output)
         inst.parent = self.parent
         inst.liveness = self.liveness.copy()
-        inst.dup_requirements = self.dup_requirements.copy()
-        inst.fence_id = self.fence_id
         inst.annotation = self.annotation
         inst.ast_source = inst.ast_source
         inst.error_msg = inst.error_msg

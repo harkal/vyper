@@ -1,17 +1,17 @@
-
-
 from vyper.venom.analysis.fcg import FCGAnalysis
 from vyper.venom.analysis.cfg import CFGAnalysis
-from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLabel, IRVariable
+from vyper.venom.basicblock import IRBasicBlock, IRLabel, IRVariable
 from vyper.venom.context import IRContext
 from vyper.venom.passes.base_pass import IRPass
 
 import sys
 
+
 class FuncInlinerPass(IRPass):
     """
     This pass inlines functions into the call sites.
     """
+
     ctx: IRContext
     inline_count: int
     fcg: FCGAnalysis
@@ -20,7 +20,7 @@ class FuncInlinerPass(IRPass):
         self.inline_count = 0
         self.ctx = self.function.ctx
         self.fcg = self.analyses_cache.request_analysis(FCGAnalysis)
-        
+
         walk = self._build_call_walk()
         for func in walk:
             calls = self.fcg.get_calls(func)
@@ -28,7 +28,7 @@ class FuncInlinerPass(IRPass):
                 sys.stderr.write("**** Inlining function " + str(func.name) + "\n")
                 self._inline_function(func, calls)
                 self.ctx.remove_function(func)
-                #break
+                # break
 
         self.analyses_cache.invalidate_analysis(CFGAnalysis)
 
@@ -43,7 +43,7 @@ class FuncInlinerPass(IRPass):
             if fn in visited:
                 return
             visited.add(fn)
-            
+
             callees = self.fcg.get_callees(fn)
             for callee in callees:
                 dfs(callee)
@@ -53,13 +53,13 @@ class FuncInlinerPass(IRPass):
         dfs(self.function)
 
         return call_walk
-    
+
     def _filter_candidates(self, func_call_counts):
         """
         Filter candidates for inlining. This will become more sophisticated in the future.
         """
         return [fn for fn, call_sites in func_call_counts.items() if len(call_sites) == 1]
-    
+
     def _inline_function(self, func, call_sites):
         """
         Inline function into call sites.
@@ -76,13 +76,14 @@ class FuncInlinerPass(IRPass):
         call_site_bb = call_site.parent
         call_site_func = call_site_bb.parent
 
-        call_site_return = IRBasicBlock(self.ctx.get_next_label(f"{prefix}inline_return"), call_site_bb.parent)
+        call_site_return = IRBasicBlock(
+            self.ctx.get_next_label(f"{prefix}inline_return"), call_site_bb.parent
+        )
         call_idx = call_site_bb.instructions.index(call_site)
-        
-        for inst in call_site_bb.instructions[call_idx + 1:]:
+
+        for inst in call_site_bb.instructions[call_idx + 1 :]:
             call_site_return.insert_instruction(inst)
         call_site_func.append_basic_block(call_site_return)
-
 
         func_copy = func.copy(prefix)
 
@@ -108,10 +109,6 @@ class FuncInlinerPass(IRPass):
                     for i, op in enumerate(inst.operands):
                         if isinstance(op, IRLabel):
                             inst.operands[i] = IRLabel(f"{prefix}{op.name}")
-                    
 
         call_site_bb.instructions = call_site_bb.instructions[:call_idx]
         call_site_bb.append_instruction("jmp", func_copy.entry.label)
-
-
-        

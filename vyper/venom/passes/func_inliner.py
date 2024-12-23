@@ -24,7 +24,7 @@ class FuncInlinerPass(IRPass):
         walk = self._build_call_walk()
         for func in walk:
             calls = self.fcg.get_calls(func)
-            if len(calls) == 1 and func.name.value == "internal 11 exp(int256)_runtime":
+            if len(calls) == 1:#  and func.name.value == "internal 11 exp(int256)_runtime":
                 sys.stderr.write("**** Inlining function " + str(func.name) + "\n")
                 self._inline_function(func, calls)
                 self.ctx.remove_function(func)

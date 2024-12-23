@@ -381,7 +381,7 @@ class IRInstruction:
         ops: list[IROperand] = []
         for op in self.operands:
             if isinstance(op, IRLabel):
-                ops.append(IRLabel(op.value))
+                ops.append(IRLabel(f"{prefix}{op.name}"))
             elif isinstance(op, IRVariable):
                 ops.append(IRVariable(f"{prefix}{op.name}"))
             else:

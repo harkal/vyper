@@ -38,6 +38,8 @@ class IRFunction:
         self._ast_source_stack = []
         self._error_msg_stack = []
 
+        self.append_basic_block(IRBasicBlock(name, self))
+
     @property
     def entry(self) -> IRBasicBlock:
         return next(self.get_basic_blocks())

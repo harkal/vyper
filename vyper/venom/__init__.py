@@ -77,7 +77,7 @@ def _run_passes(fn: IRFunction, optimize: OptimizationLevel, ac: IRAnalysesCache
     BranchOptimizationPass(ac, fn).run_pass()
     RemoveUnusedVariablesPass(ac, fn).run_pass()
 
-    StoreExpansionPass(ac, fn).run_pass()
+    # StoreExpansionPass(ac, fn).run_pass()
 
     if optimize == OptimizationLevel.CODESIZE:
         ReduceLiteralsCodesize(ac, fn).run_pass()
@@ -112,7 +112,7 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     for fn in ctx.functions.values():
         ir_analyses[fn] = IRAnalysesCache(fn)
 
-    _run_global_passes(ctx, ir_analyses, optimize)
+   #_run_global_passes(ctx, ir_analyses, optimize)
 
     # for fn in ctx.functions.values():
     #     _run_passes(fn, ir_analyses[fn], optimize)

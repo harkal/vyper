@@ -312,6 +312,7 @@ class IRInstruction:
         self.opcode = "nop"
         self.output = None
         self.operands = []
+        self.annotation = None
 
     def flip(self):
         """

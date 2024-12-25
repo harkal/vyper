@@ -1,4 +1,3 @@
-
 def test_call_in_call(get_contract):
     code = """
 @internal

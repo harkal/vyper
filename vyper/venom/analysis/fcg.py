@@ -1,8 +1,8 @@
-from vyper.venom.basicblock import IRInstruction, IRLabel
 from vyper.utils import OrderedSet
-from vyper.venom.function import IRFunction
-from vyper.venom.context import IRContext
 from vyper.venom.analysis.analysis import IRAnalysesCache, IRAnalysis
+from vyper.venom.basicblock import IRInstruction, IRLabel
+from vyper.venom.context import IRContext
+from vyper.venom.function import IRFunction
 
 
 class FCGAnalysis(IRAnalysis):

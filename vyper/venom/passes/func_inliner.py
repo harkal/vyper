@@ -1,11 +1,9 @@
+from vyper.venom.analysis.cfg import CFGAnalysis
 from vyper.venom.analysis.dfg import DFGAnalysis
 from vyper.venom.analysis.fcg import FCGAnalysis
-from vyper.venom.analysis.cfg import CFGAnalysis
 from vyper.venom.basicblock import IRBasicBlock, IRLabel, IRVariable
 from vyper.venom.context import IRContext
 from vyper.venom.passes.base_pass import IRPass
-
-import sys
 
 
 class FuncInlinerPass(IRPass):

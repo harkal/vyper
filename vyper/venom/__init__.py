@@ -3,7 +3,6 @@
 
 from typing import Optional
 
-from vyper.venom.passes.func_inliner import FuncInlinerPass
 from vyper.codegen.ir_node import IRnode
 from vyper.compiler.settings import OptimizationLevel
 from vyper.venom.analysis.analysis import IRAnalysesCache
@@ -27,6 +26,7 @@ from vyper.venom.passes import (
     StoreElimination,
     StoreExpansionPass,
 )
+from vyper.venom.passes.func_inliner import FuncInlinerPass
 from vyper.venom.venom_to_assembly import VenomCompiler
 
 DEFAULT_OPT_LEVEL = OptimizationLevel.default()
@@ -112,7 +112,7 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     for fn in ctx.functions.values():
         ir_analyses[fn] = IRAnalysesCache(fn)
 
-   #_run_global_passes(ctx, ir_analyses, optimize)
+    # _run_global_passes(ctx, ir_analyses, optimize)
 
     # for fn in ctx.functions.values():
     #     _run_passes(fn, ir_analyses[fn], optimize)

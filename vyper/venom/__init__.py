@@ -133,6 +133,7 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     # print(ctx)
 
     for fn in ctx.functions.values():
+        print("DO FUNCTION: ", fn.name, len(ctx.functions))
         _run_passes(fn, ir_analyses[fn], optimize)
     # run_passes_on(ctx, optimize)
 

@@ -308,6 +308,11 @@ class IRInstruction:
         """
         return [self.output] if self.output else []
 
+    def make_nop(self):
+        self.opcode = "nop"
+        self.output = None
+        self.operands = []
+
     def flip(self):
         """
         Flip operands for commutative or comparator opcodes
@@ -380,7 +385,7 @@ class IRInstruction:
         ops: list[IROperand] = []
         for op in self.operands:
             if isinstance(op, IRLabel):
-                ops.append(IRLabel(f"{prefix}{op.name}"))
+                ops.append(IRLabel(op.value))
             elif isinstance(op, IRVariable):
                 ops.append(IRVariable(f"{prefix}{op.name}"))
             else:

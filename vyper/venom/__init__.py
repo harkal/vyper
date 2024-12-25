@@ -47,11 +47,9 @@ def generate_assembly_experimental(
     return compiler.generate_evm(optimize == OptimizationLevel.NONE)
 
 
-def _run_passes(fn: IRFunction, ac: IRAnalysesCache, optimize: OptimizationLevel) -> None:
+def _run_passes(fn: IRFunction, optimize: OptimizationLevel, ac: IRAnalysesCache) -> None:
     # Run passes on Venom IR
     # TODO: Add support for optimization levels
-
-    ac = IRAnalysesCache(fn)
 
     FloatAllocas(ac, fn).run_pass()
 
@@ -95,9 +93,14 @@ def _run_global_passes(ctx: IRContext, ir_analyses: dict, optimize: Optimization
 count = 0
 
 
-def run_passes_on(ctx: IRContext, ir_analyses: dict, optimize: OptimizationLevel):
+def run_passes_on(ctx: IRContext, optimize: OptimizationLevel, ir_analyses: Optional[dict] = None):
+    if ir_analyses is None:
+        ir_analyses = {}
+        for fn in ctx.functions.values():
+            ir_analyses[fn] = IRAnalysesCache(fn)
+
     for fn in ctx.functions.values():
-        _run_passes(fn, ir_analyses[fn], optimize)
+        _run_passes(fn, optimize, ir_analyses[fn])
 
 
 def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
@@ -133,8 +136,7 @@ def generate_ir(ir: IRnode, optimize: OptimizationLevel) -> IRContext:
     # print(ctx)
 
     for fn in ctx.functions.values():
-        print("DO FUNCTION: ", fn.name, len(ctx.functions))
-        _run_passes(fn, ir_analyses[fn], optimize)
+        _run_passes(fn, optimize, ir_analyses[fn])
     # run_passes_on(ctx, optimize)
 
     return ctx

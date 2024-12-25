@@ -1,7 +1,7 @@
 from vyper.venom.analysis.dfg import DFGAnalysis
 from vyper.venom.analysis.fcg import FCGAnalysis
 from vyper.venom.analysis.cfg import CFGAnalysis
-from vyper.venom.basicblock import IRBasicBlock, IRVariable
+from vyper.venom.basicblock import IRBasicBlock, IRLabel, IRVariable
 from vyper.venom.context import IRContext
 from vyper.venom.passes.base_pass import IRPass
 
@@ -25,8 +25,8 @@ class FuncInlinerPass(IRPass):
         walk = self._build_call_walk()
         for func in walk:
             calls = self.fcg.get_calls(func)
-            if len(calls) == 1:#  and func.name.value == "internal 11 exp(int256)_runtime":
-                sys.stderr.write("**** Inlining function " + str(func.name) + "\n")
+            if len(calls) == 1:
+                # sys.stderr.write("**** Inlining function " + str(func.name) + "\n")
                 self._inline_function(func, calls)
                 self.ctx.remove_function(func)
                 # break
@@ -99,18 +99,17 @@ class FuncInlinerPass(IRPass):
                         inst.operands = [call_site.operands[1]]
                         inst.output = IRVariable(inst.output.name, inst.output.version + 1)
                     elif inst.annotation == "return_pc":
-                        inst.opcode = "nop"
-                        inst.output = None
+                        inst.make_nop()
                 elif inst.opcode == "store":
                     if "ret_ofst" in inst.output.name or "ret_size" in inst.output.name:
-                        bb.remove_instruction(inst)
+                        inst.make_nop()
                 elif inst.opcode == "ret":
                     inst.opcode = "jmp"
                     inst.operands = [call_site_return.label]
-                # elif inst.opcode in ["jmp", "jnz", "djmp", "phi"]:
-                #     for i, op in enumerate(inst.operands):
-                #         if isinstance(op, IRLabel):
-                #             inst.operands[i] = IRLabel(f"{prefix}{op.name}")
+                elif inst.opcode in ["jmp", "jnz", "djmp", "phi"]:
+                    for i, op in enumerate(inst.operands):
+                        if isinstance(op, IRLabel):
+                            inst.operands[i] = IRLabel(f"{prefix}{op.name}")
 
         call_site_bb.instructions = call_site_bb.instructions[:call_idx]
         call_site_bb.append_instruction("jmp", func_copy.entry.label)

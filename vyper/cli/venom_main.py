@@ -59,7 +59,7 @@ def _parse_args(argv: list[str]):
     ir_analyses = {}
     for fn in ctx.functions.values():
         ir_analyses[fn] = IRAnalysesCache(fn)
-    run_passes_on(ctx, ir_analyses, OptimizationLevel.default())
+    run_passes_on(ctx, OptimizationLevel.default(), ir_analyses)
     asm = generate_assembly_experimental(ctx)
     bytecode = generate_bytecode(asm, compiler_metadata=None)
     print(f"0x{bytecode.hex()}")

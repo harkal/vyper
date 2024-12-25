@@ -163,7 +163,7 @@ def _handle_self_call(fn: IRFunction, ir: IRnode, symbols: SymbolTable) -> Optio
     func_t = ir.passthrough_metadata["func_t"]
     assert func_t is not None, "func_t not found in passthrough metadata"
 
-    fn_new = fn.ctx.create_function(target_label)
+    fn.ctx.create_function(target_label)
 
     stack_args: list[IROperand] = []
 

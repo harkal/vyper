@@ -16,6 +16,7 @@ class FuncInlinerPass(IRPass):
     fcg: FCGAnalysis
 
     def run_pass(self):
+        return
         self.inline_count = 0
         self.ctx = self.function.ctx
         self.fcg = self.analyses_cache.request_analysis(FCGAnalysis)
@@ -23,7 +24,7 @@ class FuncInlinerPass(IRPass):
         walk = self._build_call_walk()
         for func in walk:
             calls = self.fcg.get_calls(func)
-            if len(calls) == 1:
+            if len(calls) == 1 and False:
                 # sys.stderr.write("**** Inlining function " + str(func.name) + "\n")
                 self._inline_function(func, calls)
                 self.ctx.remove_function(func)
@@ -98,6 +99,9 @@ class FuncInlinerPass(IRPass):
                         inst.output = IRVariable(inst.output.name, inst.output.version + 1)
                     elif inst.annotation == "return_pc":
                         inst.make_nop()
+                elif inst.opcode == "palloca":
+                    inst.opcode = "store"
+                    inst.operands = [inst.operands[0]]
                 elif inst.opcode == "store":
                     if "ret_ofst" in inst.output.name or "ret_size" in inst.output.name:
                         inst.make_nop()

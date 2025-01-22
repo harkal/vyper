@@ -195,7 +195,7 @@ def test() -> int128:
     if 1 == 1 :
         return 1
     else:
-        assert msg.sender != self
+        assert msg.sender != msg.sender
         return 0
     """,
     """

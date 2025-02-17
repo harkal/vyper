@@ -387,6 +387,12 @@ class IRInstruction:
                 del self.operands[i : i + 2]
                 return
 
+    @property
+    def code_size_cost(self) -> int:
+        if self.opcode == "store":
+            return 1
+        return 2
+
     def get_ast_source(self) -> Optional[IRnode]:
         if self.ast_source:
             return self.ast_source
@@ -395,6 +401,40 @@ class IRInstruction:
             if inst.ast_source:
                 return inst.ast_source
         return self.parent.parent.ast_source
+
+    def copy(self, prefix: str = "") -> "IRInstruction":
+        ops: list[IROperand] = []
+        for op in self.operands:
+            if isinstance(op, IRLabel):
+                ops.append(IRLabel(op.value))
+            elif isinstance(op, IRVariable):
+                ops.append(IRVariable(f"{prefix}{op.name}"))
+            else:
+                ops.append(IRLiteral(op.value))
+
+        output = None
+        if self.output:
+            output = IRVariable(f"{prefix}{self.output.name}")
+
+        inst = IRInstruction(self.opcode, ops, output)
+        inst.parent = self.parent
+        inst.liveness = self.liveness.copy()
+        inst.annotation = self.annotation
+        inst.ast_source = self.ast_source
+        inst.error_msg = self.error_msg
+        return inst
+
+    def str_short(self) -> str:
+        s = ""
+        if self.output:
+            s += f"{self.output} = "
+        opcode = f"{self.opcode} " if self.opcode != "store" else ""
+        s += opcode
+        operands = self.operands
+        if opcode not in ["jmp", "jnz", "invoke"]:
+            operands = list(reversed(operands))
+        s += ", ".join([(f"@{op}" if isinstance(op, IRLabel) else str(op)) for op in operands])
+        return s
 
     def __repr__(self) -> str:
         s = ""
@@ -559,6 +599,29 @@ class IRBasicBlock:
         assert isinstance(instruction, IRInstruction), "instruction must be an IRInstruction"
         self.instructions.remove(instruction)
 
+    def remove_instructions_after(self, instruction: IRInstruction) -> None:
+        assert isinstance(instruction, IRInstruction), "instruction must be an IRInstruction"
+        assert instruction in self.instructions, "instruction must be in basic block"
+        # TODO: make sure this has coverage in the test suite
+        self.instructions = self.instructions[: self.instructions.index(instruction) + 1]
+
+    def ensure_well_formed(self):
+        for inst in self.instructions:
+            if inst.opcode == "revert":
+                self.remove_instructions_after(inst)
+                self.append_instruction("stop")  # TODO: make revert a bb terminator?
+                break
+        # TODO: remove once clear_dead_instructions is removed
+        self.clear_dead_instructions()
+
+        def key(inst):
+            if inst.opcode in ("phi", "param"):
+                return 0
+            if inst.is_bb_terminator:
+                return 2
+            return 1
+        self.instructions.sort(key=key)
+
     @property
     def phi_instructions(self) -> Iterator[IRInstruction]:
         for inst in self.instructions:
@@ -586,6 +649,10 @@ class IRBasicBlock:
     @property
     def body_instructions(self) -> Iterator[IRInstruction]:
         return (inst for inst in self.instructions[:-1] if not inst.is_pseudo)
+
+    @property
+    def code_size_cost(self) -> int:
+        return sum(inst.code_size_cost for inst in self.instructions)
 
     def replace_operands(self, replacements: dict) -> None:
         """
@@ -665,12 +732,15 @@ class IRBasicBlock:
                 return inst.liveness
         return OrderedSet()
 
-    def copy(self):
-        bb = IRBasicBlock(self.label, self.parent)
-        bb.instructions = self.instructions.copy()
-        bb.cfg_in = self.cfg_in.copy()
-        bb.cfg_out = self.cfg_out.copy()
-        bb.out_vars = self.out_vars.copy()
+    def copy(self, prefix: str = "") -> "IRBasicBlock":
+        new_label = IRLabel(f"{prefix}{self.label.value}")
+        bb = IRBasicBlock(new_label, self.parent)
+        bb.instructions = [inst.copy(prefix) for inst in self.instructions]
+        for inst in bb.instructions:
+            inst.parent = bb
+        bb.cfg_in = OrderedSet()
+        bb.cfg_out = OrderedSet()
+        bb.out_vars = OrderedSet()
         return bb
 
     def __repr__(self) -> str:

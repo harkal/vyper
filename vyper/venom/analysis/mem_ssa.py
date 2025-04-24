@@ -305,7 +305,7 @@ class MemSSA(IRAnalysis):
             access = access.reaching_def
 
         clobber = self._walk_for_clobbered_access(access, query_loc)
-        return clobber
+        return clobber or self.live_on_entry
 
     def _walk_for_clobbered_access(
         self, current: Optional[MemoryAccess], query_loc: MemoryLocation

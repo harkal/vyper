@@ -79,7 +79,7 @@ def test_no_clobber_different_locations(create_mem_ssa):
     mem_use = mem_ssa.memory_uses[fn.entry][0]
 
     clobbered = mem_ssa.get_clobbered_memory_access(mem_use)
-    assert clobbered.is_live_on_entry  # Should return live_on_entry since no clobber found
+    assert clobbered is None # Should return None since no clobber found
 
 
 def test_phi_node_clobber(create_mem_ssa):
@@ -1035,7 +1035,7 @@ def test_get_clobbered_memory_access_with_phi(create_mem_ssa):
     merge_block = fn.get_basic_block("merge")
     phi = mem_ssa.memory_phis[merge_block]
 
-    assert mem_ssa.get_clobbered_memory_access(phi) == mem_ssa.live_on_entry
+    assert mem_ssa.get_clobbered_memory_access(phi) is None
 
 
 def test_get_clobbered_memory_access_with_live_on_entry(dummy_mem_ssa):

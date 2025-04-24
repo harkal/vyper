@@ -300,17 +300,12 @@ class MemSSA(IRAnalysis):
             return None
 
         query_loc = access.loc
-        if isinstance(access, MemoryPhi):
-            # For a phi, check all incoming paths
-            for acc, _ in access.operands:
-                clobbering = self._walk_for_clobbered_access(acc, query_loc)
-                if clobbering and not clobbering.is_live_on_entry:
-                    # Phi itself if any path has a clobber
-                    return access
-            return self.live_on_entry
 
-        clobber = self._walk_for_clobbered_access(access.reaching_def, query_loc)
-        return clobber or self.live_on_entry
+        if access.reaching_def is not None:
+            access = access.reaching_def
+
+        clobber = self._walk_for_clobbered_access(access, query_loc)
+        return clobber
 
     def _walk_for_clobbered_access(
         self, current: Optional[MemoryAccess], query_loc: MemoryLocation
@@ -318,11 +313,14 @@ class MemSSA(IRAnalysis):
         while current and not current.is_live_on_entry:
             if isinstance(current, MemoryDef) and query_loc.completely_contains(current.loc):
                 return current
-            elif isinstance(current, MemoryPhi):
+
+            if isinstance(current, MemoryPhi):
                 for access, _ in current.operands:
                     clobbering = self._walk_for_clobbered_access(access, query_loc)
                     if clobbering is not None:
                         return clobbering
+                # phi nodes do not have reaching def
+                return None
             current = current.reaching_def
         return None
 

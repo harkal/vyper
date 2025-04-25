@@ -31,7 +31,6 @@ from vyper.venom.passes import (
     StoreElimination,
     StoreExpansionPass,
 )
-from vyper.venom.passes.dead_store_elimination import DeadStoreElimination
 from vyper.venom.venom_to_assembly import VenomCompiler
 
 DEFAULT_OPT_LEVEL = OptimizationLevel.default()
@@ -85,7 +84,6 @@ def _run_passes(fn: IRFunction, optimize: OptimizationLevel, ac: IRAnalysesCache
 
     SimplifyCFGPass(ac, fn).run_pass()
     MemMergePass(ac, fn).run_pass()
-    DeadStoreElimination(ac, fn).run_pass()
 
     # memssa = ac.request_analysis(MemSSA)
     # with memssa.print_context():

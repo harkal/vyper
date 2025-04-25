@@ -1,6 +1,5 @@
 from .algebraic_optimization import AlgebraicOptimizationPass
 from .branch_optimization import BranchOptimizationPass
-from .dead_store_elimination import DeadStoreElimination
 from .dft import DFTPass
 from .float_allocas import FloatAllocas
 from .function_inliner import FunctionInlinerPass

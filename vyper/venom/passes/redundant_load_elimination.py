@@ -55,7 +55,7 @@ class RedundantLoadElimination(IRPass):
                     available_loads = {
                         use: var
                         for use, var in available_loads.items()
-                        if not self.mem_ssa.alias.may_alias(use.loc, mem_def.loc)
+                        if not self.mem_ssa.memalias.may_alias(use.loc, mem_def.loc)
                     }
 
                 if mem_use and inst.opcode == "mload" and not mem_use.is_volatile:
@@ -71,7 +71,7 @@ class RedundantLoadElimination(IRPass):
                         available_loads = {
                             use: var
                             for use, var in available_loads.items()
-                            if not self.mem_ssa.alias.may_alias(use.loc, op_def.loc)
+                            if not self.mem_ssa.memalias.may_alias(use.loc, op_def.loc)
                         }
 
             self.available_loads_per_block[bb].update(available_loads)
@@ -99,7 +99,7 @@ class RedundantLoadElimination(IRPass):
                     available_loads = {
                         use: var
                         for use, var in available_loads.items()
-                        if not self.mem_ssa.alias.may_alias(use.loc, op_def.loc)
+                        if not self.mem_ssa.memalias.may_alias(use.loc, op_def.loc)
                     }
 
         for inst in bb.instructions:
@@ -110,7 +110,7 @@ class RedundantLoadElimination(IRPass):
                 available_loads = {
                     use: var
                     for use, var in available_loads.items()
-                    if not self.mem_ssa.alias.may_alias(use.loc, mem_def.loc)
+                    if not self.mem_ssa.memalias.may_alias(use.loc, mem_def.loc)
                 }
 
             if mem_use and inst.opcode == "mload" and not mem_use.is_volatile:
@@ -124,7 +124,7 @@ class RedundantLoadElimination(IRPass):
 
                     if (
                         use != mem_use
-                        and use.loc.completely_overlaps(mem_use.loc)
+                        and use.loc.completely_contains(mem_use.loc)
                         and not use.is_volatile
                         and self._is_load_available(mem_use, use.reaching_def)  # type: ignore
                     ):
@@ -141,7 +141,7 @@ class RedundantLoadElimination(IRPass):
                 if inst in self.replacements:
                     new_var = self.replacements[inst]
                     del self.mem_ssa.inst_to_use[inst]
-                    self.updater.update(inst, "store", [new_var], "[redundant load elimination]")
+                    self.updater.update(inst, "store", [new_var], annotation="[redundant load elimination]")
 
     def _is_load_available(
         self, use: MemoryUse, last_memory_write: Union[MemoryDef, MemoryPhi]
@@ -162,13 +162,13 @@ class RedundantLoadElimination(IRPass):
                 use_idx = use_block.instructions.index(use.load_inst)
                 for inst in def_block.instructions[def_idx + 1 : use_idx]:
                     mem_def = self.mem_ssa.get_memory_def(inst)
-                    if mem_def and self.mem_ssa.alias.may_alias(def_loc, mem_def.loc):
+                    if mem_def and self.mem_ssa.memalias.may_alias(def_loc, mem_def.loc):
                         return False
             else:
                 # Check inter-block path
                 current = use.reaching_def
                 while current and current != last_memory_write and not current.is_live_on_entry:
-                    if isinstance(current, MemoryDef) and self.mem_ssa.alias.may_alias(
+                    if isinstance(current, MemoryDef) and self.mem_ssa.memalias.may_alias(
                         def_loc, current.loc
                     ):
                         return False

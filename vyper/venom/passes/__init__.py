@@ -13,6 +13,7 @@ from .memmerging import MemMergePass
 from .normalization import NormalizationPass
 from .redundant_load_elimination import RedundantLoadElimination
 from .remove_unused_variables import RemoveUnusedVariablesPass
+from .revert_to_assert import RevertToAssert
 from .sccp import SCCP
 from .simplify_cfg import SimplifyCFGPass
 from .store_elimination import StoreElimination

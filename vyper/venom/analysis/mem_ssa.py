@@ -123,14 +123,12 @@ class MemSSAAbstract(IRAnalysis):
 
     addr_space: AddrSpace
     mem_alias_type: type[MemoryAliasAnalysisAbstract]
+    live_on_entry: LiveOnEntry = LiveOnEntry(0)
 
     def __init__(self, analyses_cache, function):
         super().__init__(analyses_cache, function)
 
         self.next_id = 1  # Start from 1 since 0 will be live_on_entry
-
-        # live_on_entry node
-        self.live_on_entry = LiveOnEntry(0)
 
         self.memory_defs: dict[IRBasicBlock, list[MemoryDef]] = {}
         self.memory_uses: dict[IRBasicBlock, list[MemoryUse]] = {}

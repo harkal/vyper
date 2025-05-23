@@ -28,6 +28,29 @@ def test_basic_redundant_load():
     _check_pre_post(pre, post)
 
 
+def test_basic_redundant_load_with_copy():
+    pre = """
+        _global:
+            mcopy 0, 128, 64
+            %loaded1 = mload 0
+            %loaded2 = mload 32
+            %loaded3 = mload 32
+            %loaded4 = mload 0
+            stop
+    """
+    post = """
+        _global:
+            mcopy 0, 128, 64
+            %2 = mload 32
+            %1 = mload 0
+            %loaded1 = %1
+            %loaded2 = %2
+            %loaded3 = %2
+            %loaded4 = %1
+            stop
+    """
+    _check_pre_post(pre, post)
+
 def test_redundant_load_after_store():
     pre = """
         _global:
@@ -114,7 +137,8 @@ def test_non_redundant_load_after_branches():
         _global:
             %val = 42
             mstore 0, %val
-            %cond = mload 0
+            %1 = mload 0
+            %cond = %1
             jnz %cond, @then, @else
         then:
             %loaded1 = mload 32

@@ -106,12 +106,29 @@ class InstUpdater:
         self.update(inst, "store", [op], new_output=new_output)
 
     def add_before(
-        self, inst: IRInstruction, opcode: str, args: list[IROperand]
+        self, inst: IRInstruction, opcode: str, args: list[IROperand], annotation: Optional[str] = None
     ) -> Optional[IRVariable]:
         """
         Insert another instruction before the given instruction
         """
         assert opcode != "phi"
+        return self.add_with_offset(inst, 0, opcode, args, annotation)
+    
+    def add_after(
+        self, inst: IRInstruction, opcode: str, args: list[IROperand], annotation: Optional[str] = None
+    ) -> Optional[IRVariable]:
+        """
+        Insert another instruction before the given instruction
+        """
+        assert opcode != "phi"
+        return self.add_with_offset(inst, 1, opcode, args, annotation)
+    
+    def add_with_offset(
+        self, inst: IRInstruction, offset: int, opcode: str, args: list[IROperand], annotation: Optional[str] = None
+    ) -> Optional[IRVariable]:
+        """
+        Insert another instruction before the given instruction
+        """
         index = inst.parent.instructions.index(inst)
 
         var = None
@@ -120,7 +137,9 @@ class InstUpdater:
 
         operands = list(args)
         new_inst = IRInstruction(opcode, operands, output=var)
-        inst.parent.insert_instruction(new_inst, index)
+        if annotation:
+            new_inst.annotation = annotation
+        inst.parent.insert_instruction(new_inst, index + offset)
         for op in new_inst.operands:
             if isinstance(op, IRVariable):
                 self.dfg.add_use(op, new_inst)

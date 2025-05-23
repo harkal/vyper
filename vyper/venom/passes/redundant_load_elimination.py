@@ -1,8 +1,10 @@
-from typing import Dict, Union
+from typing import Dict, List, Union
 
+from vyper.venom.memory_location import MemoryLocation
+from vyper.utils import OrderedSet
 from vyper.venom.analysis import CFGAnalysis, DFGAnalysis, DominatorTreeAnalysis, MemSSA
-from vyper.venom.analysis.mem_ssa import MemoryDef, MemoryPhi, MemoryUse
-from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IROperand
+from vyper.venom.analysis.mem_ssa import LiveOnEntry, MemSSAAbstract, MemoryDef, MemoryPhi, MemoryUse
+from vyper.venom.basicblock import IRBasicBlock, IRInstruction, IRLiteral, IROperand, IRVariable
 from vyper.venom.passes.base_pass import InstUpdater, IRPass
 
 
@@ -25,157 +27,92 @@ class RedundantLoadElimination(IRPass):
         self.available_loads_per_block: Dict[IRBasicBlock, Dict[MemoryUse, IROperand]] = {}
 
     def run_pass(self):
-        self.cfg = self.analyses_cache.request_analysis(CFGAnalysis)
-        self.dfg = self.analyses_cache.request_analysis(DFGAnalysis)
-        self.dom = self.analyses_cache.request_analysis(DominatorTreeAnalysis)
         self.mem_ssa = self.analyses_cache.request_analysis(MemSSA)
+        self.dfg = self.analyses_cache.request_analysis(DFGAnalysis)
         self.updater = InstUpdater(self.dfg)
 
-        # Pre-compute available loads for all blocks
-        self._compute_available_loads()
+        self.effective_reaching_defs = {}
+        self.defs_to_uses: Dict[MemoryDef, List[MemoryUse]] = {}
+        for mem_use in self.mem_ssa.get_memory_uses():
+            if mem_use.inst.opcode != "mload":
+                continue
+            if isinstance(mem_use.inst.operands[0], IRVariable):
+                continue
+            mem_def = self._walk_for_effective_reaching_def(mem_use.reaching_def, mem_use.loc, OrderedSet())
+            self.effective_reaching_defs[mem_use] = mem_def
+            if mem_def not in self.defs_to_uses:
+                self.defs_to_uses[mem_def] = []
+            self.defs_to_uses[mem_def].append(mem_use)
 
-        rev_post_order = reversed(list(self.dom.dom_post_order))
-        for bb in rev_post_order:
-            self._process_block(bb)
 
-        self._eliminate_redundant_loads()
+        for mem_def in self.defs_to_uses:
+            top_emitted: Dict[int, IRVariable] = {}
+            for mem_use in self.defs_to_uses[mem_def]:
+                offset = mem_use.loc.offset
+                if offset not in top_emitted:
+                    if isinstance(mem_def, MemoryPhi):
+                        new_var = self.updater.add_before(mem_def.block.first_non_phi_instruction, "mload", [IRLiteral(offset)], annotation="[redundant load elimination]")
+                    elif mem_def.is_live_on_entry:
+                        new_var = self.updater.add_before(self.function.entry.first_non_phi_instruction, "mload", [IRLiteral(offset)], annotation="[redundant load elimination]")
+                    else:
+                        new_var = self.updater.add_after(mem_def.inst, "mload", [IRLiteral(offset)], annotation="[redundant load elimination]")                    
+                    
+                    top_emitted[offset] = new_var
 
-    def _compute_available_loads(self) -> None:
-        for bb in self.function.get_basic_blocks():
-            self.available_loads_per_block[bb] = {}
+                inst = mem_use.inst
+                self.updater.update(inst, "store", [top_emitted[offset]], annotation="[redundant load elimination]")
 
-        for bb in reversed(list(self.dom.dom_post_order)):
-            available_loads: Dict[MemoryUse, IROperand] = {}
 
-            for inst in bb.instructions:
-                mem_def = self.mem_ssa.get_memory_def(inst)
-                mem_use = self.mem_ssa.get_memory_use(inst)
-
-                if mem_def:
-                    available_loads = {
-                        use: var
-                        for use, var in available_loads.items()
-                        if not self.mem_ssa.memalias.may_alias(use.loc, mem_def.loc)
-                    }
-
-                if mem_use and inst.opcode == "mload" and not mem_use.is_volatile:
-                    # Only add if this location isn't already available (first load persists)
-                    if mem_use.loc not in [use.loc for use in available_loads]:
-                        available_loads[mem_use] = inst.output  # type: ignore
-
-            # Handle memory phi nodes
-            phi = self.mem_ssa.memory_phis.get(bb)
-            if phi:
-                for op_def, _ in phi.operands:
-                    if isinstance(op_def, MemoryDef):
-                        available_loads = {
-                            use: var
-                            for use, var in available_loads.items()
-                            if not self.mem_ssa.memalias.may_alias(use.loc, op_def.loc)
-                        }
-
-            self.available_loads_per_block[bb].update(available_loads)
-
-            dominated_blocks = self.dom.get_all_dominated_blocks(bb)
-            for dom_bb in dominated_blocks:
-                if dom_bb == bb:
-                    continue
-
-                dom_loads = {
-                    use: var
-                    for use, var in available_loads.items()
-                    if self._is_load_available(use, use.reaching_def)  # type: ignore
-                }
-
-                self.available_loads_per_block[dom_bb].update(dom_loads)
-
-    def _process_block(self, bb: IRBasicBlock) -> None:
-        available_loads = self.available_loads_per_block[bb].copy()
-
-        phi = self.mem_ssa.memory_phis.get(bb)
-        if phi:
-            for op_def, _ in phi.operands:
-                if isinstance(op_def, MemoryDef):
-                    available_loads = {
-                        use: var
-                        for use, var in available_loads.items()
-                        if not self.mem_ssa.memalias.may_alias(use.loc, op_def.loc)
-                    }
-
-        for inst in bb.instructions:
-            mem_def = self.mem_ssa.get_memory_def(inst)
-            mem_use = self.mem_ssa.get_memory_use(inst)
-
-            if mem_def:
-                available_loads = {
-                    use: var
-                    for use, var in available_loads.items()
-                    if not self.mem_ssa.memalias.may_alias(use.loc, mem_def.loc)
-                }
-
-            if mem_use and inst.opcode == "mload" and not mem_use.is_volatile:
-                inst_idx = bb.instructions.index(inst)
-                # Check for redundant loads
-                for use, var in available_loads.items():
-                    if use.load_inst.parent == bb:
-                        use_idx = bb.instructions.index(use.load_inst)
-                        if use_idx > inst_idx:
-                            continue
-
-                    if (
-                        use != mem_use
-                        and use.loc.completely_contains(mem_use.loc)
-                        and not use.is_volatile
-                        and self._is_load_available(mem_use, use.reaching_def)  # type: ignore
-                    ):
-                        self.replacements[inst] = var
-                        break
-                else:
-                    available_loads[mem_use] = inst.output  # type: ignore
-
-        self.available_loads_per_block[bb] = available_loads
-
-    def _eliminate_redundant_loads(self) -> None:
-        for bb in self.function.get_basic_blocks():
-            for inst in bb.instructions.copy():
-                if inst in self.replacements:
-                    new_var = self.replacements[inst]
-                    del self.mem_ssa.inst_to_use[inst]
-                    self.updater.update(
-                        inst, "store", [new_var], annotation="[redundant load elimination]"
-                    )
-
-    def _is_load_available(
-        self, use: MemoryUse, last_memory_write: Union[MemoryDef, MemoryPhi]
-    ) -> bool:
-        """
-        Check if a load is available at a use point.
-        """
-        if last_memory_write.is_live_on_entry:
+        self.analyses_cache.invalidate_analysis(MemSSA)
+        
+    def _is_load_redundant(self, mem_use: MemoryUse) -> bool:
+        if mem_use.is_volatile:
             return False
+        
+        query_loc = mem_use.loc
+        return self._walk_for_redundant_loads(mem_use.reaching_def, query_loc, OrderedSet())
+    
+    def _walk_for_effective_reaching_def(self, current: MemoryUse, query_loc: MemoryLocation, visited: OrderedSet[MemoryUse]) -> MemoryUse:
+        while current is not None:
+            if current in visited:
+                break
+            visited.add(current)
+            
+            if isinstance(current, MemoryDef):
+                if self.mem_ssa.memalias.may_alias(query_loc, current.loc):
+                    return current
+            if isinstance(current, MemoryPhi):
+                reaching_defs = []
+                for access, _ in current.operands:
+                    reaching_def = self._walk_for_effective_reaching_def(access, query_loc, visited)
+                    if reaching_def:
+                        reaching_defs.append(reaching_def)
+                if len(reaching_defs) == 1:
+                    return reaching_defs[0]
+                return current
+            
+            current = current.reaching_def
 
-        def_loc = last_memory_write.loc
-        use_block = use.load_inst.parent
+        return MemSSAAbstract.live_on_entry
+        
+    def _walk_for_redundant_loads(self, current: MemoryUse, query_loc: MemoryLocation, visited: OrderedSet[MemoryUse]) -> bool:
+        while current is not None:
+            if current in visited:
+                break
+            visited.add(current)
 
-        if isinstance(last_memory_write, MemoryDef):
-            def_block = last_memory_write.store_inst.parent
-            if def_block == use_block:
-                def_idx = def_block.instructions.index(last_memory_write.store_inst)
-                use_idx = use_block.instructions.index(use.load_inst)
-                for inst in def_block.instructions[def_idx + 1 : use_idx]:
-                    mem_def = self.mem_ssa.get_memory_def(inst)
-                    if mem_def and self.mem_ssa.memalias.may_alias(def_loc, mem_def.loc):
-                        return False
-            else:
-                # Check inter-block path
-                current = use.reaching_def
-                while current and current != last_memory_write and not current.is_live_on_entry:
-                    if isinstance(current, MemoryDef) and self.mem_ssa.memalias.may_alias(
-                        def_loc, current.loc
-                    ):
-                        return False
-                    current = current.reaching_def
-        elif isinstance(last_memory_write, MemoryPhi):
-            return False
+            if isinstance(current, MemoryUse):
+                if query_loc == current.loc:
+                    return True  
+            if isinstance(current, MemoryDef):
+                if self.mem_ssa.memalias.may_alias(query_loc, current.loc):
+                    return False
+            if isinstance(current, MemoryPhi):
+                for access, _ in current.operands:
+                    if self._walk_for_redundant_loads(access, query_loc, visited):
+                        return True
+            
+            current = current.reaching_def
+        
 
-        return True
+    

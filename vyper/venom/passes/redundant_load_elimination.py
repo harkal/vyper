@@ -64,14 +64,7 @@ class RedundantLoadElimination(IRPass):
 
 
         self.analyses_cache.invalidate_analysis(MemSSA)
-        
-    def _is_load_redundant(self, mem_use: MemoryUse) -> bool:
-        if mem_use.is_volatile:
-            return False
-        
-        query_loc = mem_use.loc
-        return self._walk_for_redundant_loads(mem_use.reaching_def, query_loc, OrderedSet())
-    
+            
     def _walk_for_effective_reaching_def(self, current: MemoryUse, query_loc: MemoryLocation, visited: OrderedSet[MemoryUse]) -> MemoryUse:
         while current is not None:
             if current in visited:
@@ -95,24 +88,6 @@ class RedundantLoadElimination(IRPass):
 
         return MemSSAAbstract.live_on_entry
         
-    def _walk_for_redundant_loads(self, current: MemoryUse, query_loc: MemoryLocation, visited: OrderedSet[MemoryUse]) -> bool:
-        while current is not None:
-            if current in visited:
-                break
-            visited.add(current)
-
-            if isinstance(current, MemoryUse):
-                if query_loc == current.loc:
-                    return True  
-            if isinstance(current, MemoryDef):
-                if self.mem_ssa.memalias.may_alias(query_loc, current.loc):
-                    return False
-            if isinstance(current, MemoryPhi):
-                for access, _ in current.operands:
-                    if self._walk_for_redundant_loads(access, query_loc, visited):
-                        return True
-            
-            current = current.reaching_def
         
 
     

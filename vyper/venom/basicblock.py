@@ -598,6 +598,13 @@ class IRBasicBlock:
     @property
     def non_phi_instructions(self) -> Iterator[IRInstruction]:
         return (inst for inst in self.instructions if inst.opcode != "phi")
+    
+    @property
+    def first_non_phi_instruction(self) -> Optional[IRInstruction]:
+        for inst in self.instructions:
+            if inst.opcode != "phi":
+                return inst
+        return None
 
     @property
     def param_instructions(self) -> Iterator[IRInstruction]:

@@ -38,7 +38,6 @@ class InstUpdater:
         new_output: Optional[IRVariable] = None,
         annotation: str = "",
     ) -> IRInstruction:
-        assert opcode != "phi"
         # sanity
         assert all(isinstance(op, IROperand) for op in new_operands)
 
@@ -73,13 +72,13 @@ class InstUpdater:
         inst.opcode = opcode
         inst.operands = new_operands
 
-        inst.annotation = original_str + " " + annotation
+        if annotation:
+            inst.annotation = original_str + " " + annotation
 
         return inst
 
     def nop(self, inst: IRInstruction, annotation: str = ""):
-        inst.annotation = str(inst) + " " + annotation
-        self.update(inst, "nop", [])
+        self.update(inst, "nop", [], annotation=annotation)
 
     def nop_multi(self, to_nop: Iterable[IRInstruction]):
         q = deque(to_nop)

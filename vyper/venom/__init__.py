@@ -78,11 +78,7 @@ def _run_passes(fn: IRFunction, optimize: OptimizationLevel, ac: IRAnalysesCache
     AlgebraicOptimizationPass(ac, fn).run_pass()
     LoadElimination(ac, fn).run_pass()
     RedundantLoadElimination(ac, fn).run_pass()
-
-    # memssa = ac.request_analysis(MemSSA)
-    # with memssa.print_context():
-    #     print("------------------------")
-    #     print(fn)
+    # print(fn)
 
     SCCP(ac, fn).run_pass()
     AssignElimination(ac, fn).run_pass()

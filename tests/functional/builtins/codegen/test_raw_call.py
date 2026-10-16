@@ -232,6 +232,56 @@ def foo(_addr: address) -> int128:
     assert caller.foo(target.address) == 42
 
 
+def test_static_call_zero_value(get_contract):
+    # a zero `value=` is a no-op, so it is allowed on static and delegate
+    # calls, matching the default pipeline
+    target_source = """
+@external
+@view
+def foo() -> int128:
+    return 42
+"""
+
+    caller_source = """
+ZERO: constant(uint256) = 0
+
+@external
+@view
+def static_literal(_addr: address) -> int128:
+    _response: Bytes[32] = raw_call(
+        _addr,
+        method_id("foo()"),
+        max_outsize=32,
+        is_static_call=True,
+        value=0,
+    )
+    return convert(_response, int128)
+
+@external
+@view
+def static_constant(_addr: address) -> int128:
+    _response: Bytes[32] = raw_call(
+        _addr,
+        method_id("foo()"),
+        max_outsize=32,
+        is_static_call=True,
+        value=ZERO,
+    )
+    return convert(_response, int128)
+
+@external
+def delegate_literal(_addr: address):
+    raw_call(_addr, method_id("foo()"), is_delegate_call=True, value=0)
+    """
+
+    target = get_contract(target_source)
+    caller = get_contract(caller_source)
+
+    assert caller.static_literal(target.address) == 42
+    assert caller.static_constant(target.address) == 42
+    caller.delegate_literal(target.address)
+
+
 def test_forward_calldata(get_contract, env, keccak):
     target_source = """
 @external

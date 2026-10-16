@@ -106,15 +106,6 @@ def lower_raw_call(node: vy_ast.Call, ctx: VenomCodegenContext) -> Union[IROpera
             "Call may use one of `is_delegate_call` or `is_static_call`, not both", node
         )
 
-    # Validate value not passed with delegate/static. Like legacy, reject only
-    # a value that is not known to be zero: `value=0` sends nothing, so there
-    # is nothing to forbid, and rejecting it breaks code legacy accepts.
-    value_node = _get_kwarg_value(node, "value")
-    if (is_delegate or is_static) and value_node is not None:
-        folded = value_node.reduced()
-        if not (isinstance(folded, vy_ast.Int) and folded.value == 0):
-            raise ArgumentException("value= may not be passed for static or delegate calls!", node)
-
     # Check constancy: non-static calls are not allowed from view/pure functions
     if not is_static and ctx.is_constant():
         raise StateAccessViolation(
@@ -151,6 +142,15 @@ def lower_raw_call(node: vy_ast.Call, ctx: VenomCodegenContext) -> Union[IROpera
             raise CompilerPanic(f"unexpected raw_call kwarg: {kw.arg}", kw)
     if gas is None:
         gas = b.gas()
+
+    # A nonzero value cannot be forwarded by STATICCALL or DELEGATECALL. A
+    # value that is literally zero sends nothing, so it is accepted; this is
+    # checked after lowering, like legacy, so that any expression folding to
+    # zero is accepted too.
+    if is_delegate or is_static:
+        value_is_zero = isinstance(value, IRLiteral) and value.value == 0
+        if not value_is_zero:
+            raise ArgumentException("value= may not be passed for static or delegate calls!", node)
 
     # Allocate output buffer if needed
     out_val: Optional["VyperValue"]

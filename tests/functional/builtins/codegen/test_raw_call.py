@@ -270,6 +270,18 @@ def static_constant(_addr: address) -> int128:
     return convert(_response, int128)
 
 @external
+@view
+def static_folded(_addr: address) -> int128:
+    _response: Bytes[32] = raw_call(
+        _addr,
+        method_id("foo()"),
+        max_outsize=32,
+        is_static_call=True,
+        value=convert(0, uint256),
+    )
+    return convert(_response, int128)
+
+@external
 def delegate_literal(_addr: address):
     raw_call(_addr, method_id("foo()"), is_delegate_call=True, value=0)
     """
@@ -279,6 +291,7 @@ def delegate_literal(_addr: address):
 
     assert caller.static_literal(target.address) == 42
     assert caller.static_constant(target.address) == 42
+    assert caller.static_folded(target.address) == 42
     caller.delegate_literal(target.address)
 
 

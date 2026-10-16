@@ -232,8 +232,21 @@ def foo(_addr: address) -> int128:
     assert caller.foo(target.address) == 42
 
 
-def test_static_call_zero_value(get_contract):
-    # a zero `value=` is a no-op, so it is allowed on static and delegate
+ZERO_VALUE_EXPRESSIONS = [
+    "0",
+    "ZERO",
+    "2 - 2",
+    "convert(0, uint256)",
+    # a literal conversion is folded in codegen, so it reaches the `value=`
+    # check as a constant rather than a shift
+    "convert(0x00, uint256)",
+]
+
+
+@pytest.mark.parametrize("call_mode", ["is_static_call", "is_delegate_call"])
+@pytest.mark.parametrize("zero_expr", ZERO_VALUE_EXPRESSIONS)
+def test_raw_call_zero_value(get_contract, call_mode, zero_expr):
+    # a zero `value=` sends nothing, so it is accepted on static and delegate
     # calls, matching the default pipeline
     target_source = """
 @external
@@ -242,57 +255,25 @@ def foo() -> int128:
     return 42
 """
 
-    caller_source = """
+    caller_source = f"""
 ZERO: constant(uint256) = 0
 
 @external
-@view
-def static_literal(_addr: address) -> int128:
+def call_target(_addr: address) -> int128:
     _response: Bytes[32] = raw_call(
         _addr,
         method_id("foo()"),
         max_outsize=32,
-        is_static_call=True,
-        value=0,
+        {call_mode}=True,
+        value={zero_expr},
     )
     return convert(_response, int128)
-
-@external
-@view
-def static_constant(_addr: address) -> int128:
-    _response: Bytes[32] = raw_call(
-        _addr,
-        method_id("foo()"),
-        max_outsize=32,
-        is_static_call=True,
-        value=ZERO,
-    )
-    return convert(_response, int128)
-
-@external
-@view
-def static_folded(_addr: address) -> int128:
-    _response: Bytes[32] = raw_call(
-        _addr,
-        method_id("foo()"),
-        max_outsize=32,
-        is_static_call=True,
-        value=convert(0, uint256),
-    )
-    return convert(_response, int128)
-
-@external
-def delegate_literal(_addr: address):
-    raw_call(_addr, method_id("foo()"), is_delegate_call=True, value=0)
     """
 
     target = get_contract(target_source)
     caller = get_contract(caller_source)
 
-    assert caller.static_literal(target.address) == 42
-    assert caller.static_constant(target.address) == 42
-    assert caller.static_folded(target.address) == 42
-    caller.delegate_literal(target.address)
+    assert caller.call_target(target.address) == 42
 
 
 def test_forward_calldata(get_contract, env, keccak):

@@ -36,7 +36,7 @@ from vyper.semantics.types import (
 )
 from vyper.semantics.types.shortcuts import UINT160_T, UINT256_T
 from vyper.semantics.types.user import FlagT
-from vyper.utils import DECIMAL_DIVISOR, evm_div, unsigned_to_signed
+from vyper.utils import DECIMAL_DIVISOR, evm_div, signed_to_unsigned, unsigned_to_signed
 from vyper.venom.basicblock import IRLiteral, IROperand, IRVariable
 
 if TYPE_CHECKING:
@@ -297,7 +297,17 @@ def _to_int(
     # From bytesM: right-shift by (32 - M) * 8 bits
     if isinstance(in_t, BytesM_T):
         shift_bits = (32 - in_t.m) * 8
-        if out_t.is_signed:
+        if isinstance(val, IRLiteral):
+            # fold here rather than leaving it to SCCP: legacy folds literal
+            # conversions in codegen, and checks that run before the optimizer
+            # (e.g. raw_call's `value=` must be literally zero for static and
+            # delegate calls) would otherwise see a shift instead of a constant
+            if out_t.is_signed:
+                shifted = unsigned_to_signed(val.value, 256) >> shift_bits
+                val = IRLiteral(signed_to_unsigned(shifted, 256))
+            else:
+                val = IRLiteral(val.value >> shift_bits)
+        elif out_t.is_signed:
             val = b.sar(IRLiteral(shift_bits), val)
         else:
             val = b.shr(IRLiteral(shift_bits), val)

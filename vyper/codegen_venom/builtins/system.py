@@ -106,10 +106,8 @@ def lower_raw_call(node: vy_ast.Call, ctx: VenomCodegenContext) -> Union[IROpera
             "Call may use one of `is_delegate_call` or `is_static_call`, not both", node
         )
 
-    # Validate value not passed with delegate/static
-    # Check if value kwarg is explicitly provided (not relying on default)
-    value_node = _get_kwarg_value(node, "value")
-    if (is_delegate or is_static) and value_node is not None:
+    # STATICCALL and DELEGATECALL do not accept value=.
+    if (is_delegate or is_static) and _get_kwarg_value(node, "value") is not None:
         raise ArgumentException("value= may not be passed for static or delegate calls!", node)
 
     # Check constancy: non-static calls are not allowed from view/pure functions

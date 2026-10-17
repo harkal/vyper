@@ -4,6 +4,7 @@ from hexbytes import HexBytes
 from tests.utils import ZERO_ADDRESS
 from vyper import compile_code
 from vyper.builtins.functions import eip1167_bytecode
+from vyper.compiler.settings import Settings
 from vyper.exceptions import ArgumentException, StateAccessViolation, TypeMismatch
 
 
@@ -230,6 +231,18 @@ def foo(_addr: address) -> int128:
     caller = get_contract(caller_source)
 
     assert caller.foo(target.address) == 42
+
+
+@pytest.mark.parametrize("call_mode", ["is_static_call", "is_delegate_call"])
+def test_venom_raw_call_rejects_explicit_value(call_mode):
+    source = f"""
+@external
+def foo(target: address):
+    raw_call(target, b"", {call_mode}=True, value=0)
+"""
+    settings = Settings(experimental_codegen=True)
+    with pytest.raises(ArgumentException, match="value= may not"):
+        compile_code(source, settings=settings)
 
 
 def test_forward_calldata(get_contract, env, keccak):
